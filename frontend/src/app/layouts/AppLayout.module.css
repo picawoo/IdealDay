@@ -1,0 +1,10 @@
+.layout {
+  display: grid;
+  grid-template-columns: var(--size-sidebar) minmax(0, 1fr);
+  min-block-size: 100dvh;
+}
+
+.main {
+  min-inline-size: 0;
+  padding: var(--space-page);
+}

@@ -1,0 +1,33 @@
+.avatar {
+  display: block;
+  flex: none;
+  position: relative;
+  width: 40px;
+  height: 40px;
+}
+
+.art {
+  display: block;
+  width: 72px;
+  height: 72px;
+  transform: scale(calc(40 / 72));
+  transform-origin: top left;
+}
+
+.art img {
+  position: absolute;
+  display: block;
+}
+
+.background { inset: 2.5% auto auto 2.5%; }
+.portrait {
+  position: absolute;
+  inset: 0;
+  mask: url('../../assets/icons/avatar-mask.svg') center / 68.4px 68.4px no-repeat;
+}
+.hairBack { inset: 14.38% auto auto 22.5%; }
+.shirt { inset: 66.25% auto auto 10.62%; }
+.neck { inset: 55% auto auto 42.5%; }
+.face { inset: 21.18% auto auto 28.57%; }
+.hairFront { inset: 17.1% auto auto 29.2%; }
+.earrings { inset: 48.13% auto auto 30.62%; }
