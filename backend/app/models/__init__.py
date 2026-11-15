@@ -1,1 +1,4 @@
-# Сюда импортируются все модели, чтобы Alembic видел их в Base.metadata.
+from app.models.profile import UserProfile
+from app.models.user import User
+
+__all__ = ["User", "UserProfile"]

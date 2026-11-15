@@ -16,6 +16,7 @@ dependencies = [
     "pyjwt>=2.8",
     "pwdlib[argon2]>=0.2",
     "python-multipart>=0.0.9",
+    "tzdata>=2024.1",
 ]
 
 [dependency-groups]
