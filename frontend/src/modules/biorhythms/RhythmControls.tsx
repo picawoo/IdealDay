@@ -1,8 +1,8 @@
 import { Link } from 'react-router'
 import type { ReactNode } from 'react'
-import bellIcon from '../../assets/icons/bell.svg'
 import { PageHeading } from '../../shared/ui/PageHeading'
 import { formatDate } from '../../shared/lib/calendar'
+import { NotificationBell } from '../notifications/NotificationBell'
 import type { Period } from './model'
 import styles from './Rhythm.module.css'
 
@@ -22,9 +22,7 @@ export function RhythmHeader({ title, subtitle, children, backTo, backLabel = '�
       <div className={styles.headerActions}>
         {children}
         {backTo && <Link className={styles.back} to={backTo} aria-label={backLabel}>←</Link>}
-        <button className={styles.bell} type="button" disabled title="Уведомления пока недоступны" aria-label="Уведомления">
-          <img src={bellIcon} alt="" width="22" height="22" />
-        </button>
+        <NotificationBell className={styles.bell} />
       </div>
     </header>
   )

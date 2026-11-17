@@ -7,9 +7,8 @@ interface Segment extends Interval {
   entry: ScheduleEntry
 }
 
-interface PositionedSegment extends Segment {
-  lane: number
-  lanes: number
+export interface DaySegment extends Segment {
+  conflict: boolean
 }
 
 const baseDayStart = 6 * 60
@@ -25,40 +24,26 @@ function mergeIntervals(intervals: readonly Interval[]): Interval[] {
   return merged
 }
 
-function positionSegments(segments: readonly Segment[]): PositionedSegment[] {
-  const positioned: PositionedSegment[] = []
-  let group: Array<Segment & { lane: number }> = []
-  let laneEnds: number[] = []
-  let groupEnd = 0
-
-  function appendGroup() {
-    positioned.push(...group.map((segment) => ({ ...segment, lanes: laneEnds.length })))
-    group = []
-    laneEnds = []
-  }
-
-  for (const segment of segments) {
-    if (segment.start >= groupEnd) appendGroup()
-    const available = laneEnds.findIndex((end) => end <= segment.start)
-    const lane = available < 0 ? laneEnds.length : available
-    laneEnds[lane] = segment.end
-    group.push({ ...segment, lane })
-    groupEnd = Math.max(groupEnd, segment.end)
-  }
-  appendGroup()
-  return positioned
+function markConflicts(segments: readonly Segment[]): DaySegment[] {
+  let latestEnd = 0
+  return segments.map((segment, index) => {
+    const next = segments[index + 1]
+    const conflict = segment.start < latestEnd || (next !== undefined && next.start < segment.end)
+    latestEnd = Math.max(latestEnd, segment.end)
+    return { ...segment, conflict }
+  })
 }
 
 export function getDayPlan(entries: readonly ScheduleEntry[], date: string) {
   const offset = dayOffset(date)
   const day = { start: offset, end: offset + minutesPerDay }
-  const points: PositionedSegment[] = []
+  const points: DaySegment[] = []
   const segments = entries.flatMap((entry) => {
     const interval = toInterval(entry)
     if (!interval) {
       if (entry.date === date) {
         const minute = timeToMinute(entry.startTime)
-        points.push({ entry, start: minute, end: minute, lane: 0, lanes: 1 })
+        points.push({ entry, start: minute, end: minute, conflict: false })
       }
       return []
     }
@@ -67,7 +52,7 @@ export function getDayPlan(entries: readonly ScheduleEntry[], date: string) {
       start: Math.max(0, interval.start - offset),
       end: Math.min(minutesPerDay, interval.end - offset),
     }] : []
-  }).sort((a, b) => a.start - b.start || a.end - b.end)
+  }).sort((a, b) => a.start - b.start || b.end - a.end)
 
   // Keep the same hours each day, extending only to show entries outside the base range.
   const startMinute = points.reduce((min, point) => Math.min(min, point.start),
@@ -87,12 +72,11 @@ export function getDayPlan(entries: readonly ScheduleEntry[], date: string) {
   const tasks = segments.filter(({ entry }) => !isBreak(entry))
   const taskMinutes = mergeIntervals(tasks).reduce((sum, interval) => sum + interval.end - interval.start, 0)
   const freeMinutes = free.reduce((sum, interval) => sum + interval.end - interval.start, 0)
-  const positioned = [...positionSegments(segments), ...points].sort((a, b) => a.start - b.start || a.end - b.end)
-  return { start, end, free, taskMinutes, freeMinutes, taskCount: tasks.length + points.length, entries: positioned }
+  const visibleEntries = [...markConflicts(segments), ...points].sort((a, b) => a.start - b.start || a.end - b.end)
+  return { start, end, free, taskMinutes, freeMinutes, taskCount: tasks.length + points.length, entries: visibleEntries }
 }
 
 export type DayPlan = ReturnType<typeof getDayPlan>
-export type DaySegment = DayPlan['entries'][number]
 
 export function durationLabel(minutes: number): string {
   const hours = Math.floor(minutes / 60)

@@ -6,7 +6,7 @@ import { cycleOnDate, cycles, formatPercent } from '../biorhythms/model'
 import { RhythmChart } from '../biorhythms/RhythmChart'
 import { DateField, RhythmDisclaimer, RhythmHeader } from '../biorhythms/RhythmControls'
 import { useRhythmDate } from '../biorhythms/useRhythmDate'
-import { demoProfile } from '../profile/demoProfile'
+import { usePreferences } from '../settings/usePreferences'
 import { compareByDate, formatTaskRange, taskStatuses, taskTypes } from '../tasks/model'
 import { useTasks } from '../tasks/useTasks'
 import { getDemoPlan } from './demoPlan'
@@ -14,7 +14,8 @@ import styles from '../biorhythms/Rhythm.module.css'
 
 export function DashboardPage() {
   const { date, period, setDate, setPeriod } = useRhythmDate('week')
-  const readings = cycles.map((cycle) => cycleOnDate(demoProfile.birthDate, date, cycle))
+  const { profile, firstName, rhythm, isDemo, timeZone } = usePreferences()
+  const readings = cycles.map((cycle) => cycleOnDate(profile.birthDate, date, cycle))
   const transitions = readings.filter((reading) => reading.critical)
   const critical = transitions.length > 0
   const demoPlan = getDemoPlan(date)
@@ -25,14 +26,14 @@ export function DashboardPage() {
   return (
     <div className={styles.page}>
       <RhythmHeader
-        title={critical ? 'День в бережном режиме' : 'Доброе утро, ' + demoProfile.firstName}
-        subtitle={weekday.charAt(0).toUpperCase() + weekday.slice(1) + ' · Демонстрационный профиль'}
+        title={critical ? 'День в бережном режиме' : 'Доброе утро, ' + firstName}
+        subtitle={weekday.charAt(0).toUpperCase() + weekday.slice(1) + (isDemo ? ' · Демонстрационный профиль' : '')}
       >
         <div className={styles.dateNavigation} role="group" aria-label="Выбор дня">
           <button type="button" aria-label="Предыдущий день" onClick={() => setDate(addDays(date, -1))}>‹</button>
           <DateField date={date} onChange={setDate} />
           <button type="button" aria-label="Следующий день" onClick={() => setDate(addDays(date, 1))}>›</button>
-          <button type="button" className={styles.softButton} onClick={() => setDate(dateInTimeZone(new Date(), demoProfile.timeZone))}>Сегодня</button>
+          <button type="button" className={styles.softButton} onClick={() => setDate(dateInTimeZone(new Date(), timeZone))}>Сегодня</button>
         </div>
       </RhythmHeader>
 
@@ -43,13 +44,13 @@ export function DashboardPage() {
         </section>
       )}
 
-      <CycleCards birthDate={demoProfile.birthDate} date={date} />
+      <CycleCards birthDate={profile.birthDate} date={date} />
 
       <div className={styles.dashboardColumns} data-critical={critical}>
         <RhythmChart
           title={critical ? 'Переходы циклов' : 'Ваш ритм'}
           date={date}
-          birthDate={demoProfile.birthDate}
+          birthDate={profile.birthDate}
           period={period}
           onPeriod={setPeriod}
           onDate={setDate}
@@ -65,9 +66,9 @@ export function DashboardPage() {
           ) : (
             <>
               <span className={styles.focusLabel}>Сегодня в фокусе</span>
-              <h2>Важное —<br />в первой половине дня</h2>
-              <strong>{demoProfile.focusWindow}</strong>
-              <p>Утреннее окно из демонстрационного профиля. Интеллектуальный цикл модели: {formatPercent(readings[2].percent)}. Ориентируйтесь на самочувствие.</p>
+              <h2>Важное —<br />{rhythm.headline}</h2>
+              <strong>{rhythm.focusWindow}</strong>
+              <p>Окно фокуса по вашему хронотипу. Интеллектуальный цикл модели: {formatPercent(readings[2].percent)}. Ориентируйтесь на самочувствие.</p>
               <p className={styles.breakAdvice}>Оставьте 15 минут на перерыв.</p>
             </>
           )}

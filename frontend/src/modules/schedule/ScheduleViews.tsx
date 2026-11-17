@@ -6,17 +6,14 @@ import { isBreak, taskTypes } from '../tasks/model'
 import type { Task } from '../tasks/model'
 import { minuteToTime } from '../tasks/timeIntervals'
 import { durationLabel } from './dayPlan'
-import type { DayPlan, DaySegment } from './dayPlan'
+import type { DayPlan } from './dayPlan'
 import type { Interval } from '../tasks/timeIntervals'
 import { dragType, ScheduleCard } from './ScheduleCard'
-import { layoutTimeline } from './timelineLayout'
+import { createTimeScale, layoutTimeline } from './timelineLayout'
+import type { TimelineLayout, TimeScale } from './timelineLayout'
 import styles from './Schedule.module.css'
 
-const minimumCardMinutes = 15
-
-type Callout =
-  | { key: string; minute: number; height: number; segment: DaySegment }
-  | { key: string; minute: number; height: number; free: Interval }
+const minimumFreeLabelMinutes = 15
 
 interface CardActions {
   onMove: (task: Task) => void
@@ -35,14 +32,13 @@ function newTaskLink(date: string, minute: number): string {
   return paths.taskNew + '?' + query
 }
 
-function FreeWindow({ date, interval: { start, end }, compact, detached = false }: {
+function FreeWindow({ date, interval: { start, end }, compact }: {
   date: string
   interval: Interval
   compact: boolean
-  detached?: boolean
 }) {
   return (
-    <Link className={styles.free} data-compact={compact} data-callout={detached} to={newTaskLink(date, start)}>
+    <Link className={styles.free} data-compact={compact} to={newTaskLink(date, start)}>
       <span className={styles.freeTime}>{minuteToTime(start)}–{minuteToTime(end)}</span>
       <span>Свободно · {durationLabel(end - start)}</span>
     </Link>
@@ -56,94 +52,70 @@ function allowDrop(event: DragEvent<HTMLElement>) {
   }
 }
 
-export function DayTimeline({ day, onMove, onBreak, onDropTask }: CardActions & { day: CalendarDay }) {
-  const { plan, date } = day
-  const span = plan.end - plan.start
-  const hours = Array.from({ length: span / 60 + 1 }, (_, index) => plan.start + 60 * index)
-  const anchors: Callout[] = [
-    ...plan.entries.filter(({ start, end }) => end - start < minimumCardMinutes)
-      .map((segment) => ({ key: segment.entry.id, minute: segment.start, height: 48, segment })),
-    ...plan.free.filter(({ start, end }) => end - start < minimumCardMinutes)
-      .map((free) => ({ key: 'free:' + free.start, minute: (free.start + free.end) / 2, height: 28, free })),
-  ]
-  const { offset, height, callouts } = layoutTimeline(plan.start, plan.end, anchors)
+function HourLines({ scale: { start, end, offset }, labels }: {
+  scale: TimeScale
+  labels: boolean
+}) {
+  return Array.from({ length: (end - start) / 60 + 1 }, (_, index) => {
+    const hour = start + 60 * index
+    return <div className={styles.hour} key={hour} style={{ top: offset(hour) }}>{labels && <span>{minuteToTime(hour)}</span>}</div>
+  })
+}
+
+function Timeline({ day: { plan, date }, onMove, onBreak, onDropTask, scale, layout, height = layout.height, week = false }: CardActions & {
+  day: CalendarDay
+  scale: TimeScale
+  layout: TimelineLayout
+  height?: number
+  week?: boolean
+}) {
+  const { offset } = scale
 
   function drop(event: DragEvent<HTMLElement>) {
     const id = event.dataTransfer.getData(dragType)
     if (!id) return
     event.preventDefault()
-    const rect = event.currentTarget.getBoundingClientRect()
-    const minute = plan.start + ((event.clientY - rect.top) / rect.height) * span
-    const snapped = Math.min(plan.end - 1, Math.max(plan.start, Math.round(minute)))
-    onDropTask(id, date, snapped)
+    event.stopPropagation()
+    const top = event.currentTarget.getBoundingClientRect().top
+    onDropTask(id, date, scale.minuteAt(event.clientY - top))
   }
 
   return (
-    <>
-      {plan.entries.length === 0 && <p className={styles.muted}>На этот день ничего не запланировано.</p>}
-      <div className={styles.timelineFrame}>
-        <div className={styles.timeline} data-rail={callouts.length > 0} style={{ blockSize: height }}
-          onDragOver={allowDrop} onDrop={drop} aria-label="Почасовое расписание">
-          <div className={styles.track}>
-            {hours.map((hour) => (
-              <div className={styles.hour} key={hour} style={{ top: offset(hour) }}><span>{minuteToTime(hour)}</span></div>
-            ))}
-            {plan.free.map((free) => (
-              <div className={styles.freeSlot} key={free.start} style={{ top: offset(free.start), height: offset(free.end) - offset(free.start) }}>
-                {free.end - free.start >= minimumCardMinutes && (
-                  <FreeWindow interval={free} date={date} compact={free.end - free.start < 40} />
-                )}
-              </div>
-            ))}
-            {plan.entries.map((segment) => {
-              const { entry, start, end, lane, lanes } = segment
-              const minutes = end - start
-              if (minutes === 0) return null
-              return (
-                <div className={styles.slot} key={entry.id} data-compact={minutes < 30} style={{
-                  top: offset(start),
-                  height: offset(end) - offset(start),
-                  left: lane / lanes * 100 + '%',
-                  width: 100 / lanes + '%',
-                }}>
-                  {minutes < minimumCardMinutes ? (
-                    <div
-                      className={styles.shortMarker}
-                      data-type={isBreak(entry) ? 'break' : entry.type}
-                      data-conflict={lanes > 1}
-                      aria-hidden="true"
-                    />
-                  ) : <ScheduleCard segment={segment} onMove={onMove} onBreak={onBreak} />}
-                </div>
-              )
-            })}
-          </div>
-          {callouts.length > 0 && (
-            <>
-              <svg className={styles.connectors} viewBox={'0 0 18 ' + height} preserveAspectRatio="none" aria-hidden="true">
-                {callouts.map((callout) => {
-                  const entry = 'segment' in callout ? callout.segment.entry : null
-                  const type = !entry ? 'free' : isBreak(entry) ? 'break' : entry.type
-                  return (
-                    <g key={callout.key} data-type={type}>
-                      <line x1="2" y1={callout.y} x2="18" y2={callout.top + callout.height / 2} />
-                      <circle cx="3" cy={callout.y} r={entry?.duration === null ? 3 : 2} />
-                    </g>
-                  )
-                })}
-              </svg>
-              <div className={styles.rail}>
-                {callouts.map((callout) => (
-                  <div key={callout.key} className={styles.callout} style={{ top: callout.top, height: callout.height }}>
-                    {'segment' in callout
-                      ? <ScheduleCard segment={callout.segment} onMove={onMove} onBreak={onBreak} />
-                      : <FreeWindow interval={callout.free} date={date} compact detached />}
-                  </div>
-                ))}
-              </div>
-            </>
+    <div className={`${styles.timeline} ${week ? styles.weekTimeline : styles.dayTimeline}`}
+      style={{ blockSize: height, minInlineSize: layout.minWidth }} onDragOver={allowDrop} onDrop={drop}
+      aria-label={week ? `Почасовое расписание: ${formatDate(date, { dateStyle: 'long' })}` : 'Почасовое расписание'}>
+      <HourLines scale={scale} labels={!week} />
+      {plan.free.map((free) => (
+        <div className={styles.freeSlot} key={free.start} style={{ top: offset(free.start), height: offset(free.end) - offset(free.start) }}>
+          {!week && free.end - free.start >= minimumFreeLabelMinutes && (
+            <FreeWindow interval={free} date={date} compact={free.end - free.start < 40} />
           )}
         </div>
+      ))}
+      {layout.slots.map(({ segment, start, end, lane, lanes, laneSpan }) => (
+        <div className={styles.slot} key={segment.entry.id} data-compact={end - start < 56}
+          data-point={segment.entry.duration === null} data-gutter={lane + laneSpan < lanes} style={{
+            top: start,
+            height: end - start,
+            insetInlineStart: lane / lanes * 100 + '%',
+            width: laneSpan / lanes * 100 + '%',
+          }}>
+          <ScheduleCard segment={segment} onMove={onMove} onBreak={onBreak} />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+export function DayTimeline({ day, ...actions }: CardActions & { day: CalendarDay }) {
+  const scale = createTimeScale(day.plan.start, day.plan.end)
+  const layout = layoutTimeline(day.plan.entries, scale)
+
+  return (
+    <>
+      {day.plan.entries.length === 0 && <p className={styles.muted}>На этот день ничего не запланировано.</p>}
+      <div className={styles.timelineFrame}>
+        <Timeline day={day} scale={scale} layout={layout} {...actions} />
       </div>
       <p className={styles.muted}>Цвет задачи обозначает её тип. Откройте перенос кнопкой ⋮⋮ или перетащите её на новое время.</p>
     </>
@@ -159,6 +131,12 @@ export function WeekCalendar({ days, selectedDate, today, onSelectDay, onMove, o
   const tasks = new Set(days.flatMap(({ plan }) => plan.entries.filter(({ entry }) => !isBreak(entry)).map(({ entry }) => entry.id)))
   const workMinutes = days.reduce((sum, day) => sum + day.plan.taskMinutes, 0)
   const criticalDays = days.filter((day) => day.critical).length
+  const start = Math.min(...days.map(({ plan }) => plan.start))
+  const end = Math.max(...days.map(({ plan }) => plan.end))
+  const scale = createTimeScale(start, end)
+  const layouts = days.map(({ plan }) => layoutTimeline(plan.entries, scale))
+  const height = Math.max(...layouts.map((layout) => layout.height))
+  const columns = layouts.map(({ minWidth }) => `minmax(${minWidth}px, 1fr)`)
 
   return (
     <>
@@ -166,26 +144,36 @@ export function WeekCalendar({ days, selectedDate, today, onSelectDay, onMove, o
         <span>Задач: {tasks.size} · {durationLabel(workMinutes)}</span>
         {criticalDays > 0 && <span>Дней с переходом цикла: {criticalDays}</span>}
       </div>
-      <div className={styles.week}>
-        {days.map(({ date, plan, critical }) => (
-          <section key={date} className={styles.weekDay} data-selected={date === selectedDate}
-            onDragOver={allowDrop} onDrop={(event) => {
-              const id = event.dataTransfer.getData(dragType)
-              if (id) { event.preventDefault(); onDropTask(id, date) }
-            }}
-          >
-            <button type="button" className={styles.weekDate} aria-label={'Открыть день: ' + formatDate(date, { dateStyle: 'long' })} onClick={() => onSelectDay(date)}>
-              <small>{formatDate(date, { weekday: 'short' })}</small>
-              <strong>{formatDate(date, { day: 'numeric' })}</strong>
-              <span>{durationLabel(plan.taskMinutes)}</span>
-            </button>
-            <progress value={plan.taskMinutes} max={plan.end - plan.start} aria-label="Загрузка дня" />
-            <p className={styles.muted}>{date === today ? 'Сегодня' : formatDate(date, { month: 'long' })}{critical && ' · △ Переход'}</p>
-            {plan.entries.map((segment) => <ScheduleCard key={segment.entry.id} segment={segment} onMove={onMove} onBreak={onBreak} />)}
-            {!plan.entries.length && <p className={styles.emptyDay}>Нет событий</p>}
-            {plan.free.length > 0 && <Link className={styles.weekFree} to={newTaskLink(date, plan.free[0].start)}>+ Свободное время</Link>}
-          </section>
-        ))}
+      <div className={styles.weekScroll} tabIndex={0} aria-label="Недельная сетка">
+        <div className={styles.week} style={{ gridTemplateColumns: `44px ${columns.join(' ')}` }}>
+          <div className={styles.weekHours} aria-hidden="true">
+            <HourLines scale={scale} labels />
+          </div>
+          {days.map((day, index) => {
+            const { date, plan, critical } = day
+            return <section key={date} className={styles.weekDay} data-selected={date === selectedDate} style={{ gridColumn: index + 2 }}
+              onDragOver={allowDrop} onDrop={(event) => {
+                const id = event.dataTransfer.getData(dragType)
+                if (id) { event.preventDefault(); onDropTask(id, date) }
+              }}
+            >
+              <header className={styles.weekHeader}>
+                <button type="button" className={styles.weekDate} aria-label={'Открыть день: ' + formatDate(date, { dateStyle: 'long' })} onClick={() => onSelectDay(date)}>
+                  <small>{formatDate(date, { weekday: 'short' })}</small>
+                  <strong>{formatDate(date, { day: 'numeric' })}</strong>
+                  <span>{durationLabel(plan.taskMinutes)}</span>
+                </button>
+                <progress value={plan.taskMinutes} max={plan.end - plan.start} aria-label="Загрузка дня" />
+                <p className={styles.muted}>{date === today ? 'Сегодня' : formatDate(date, { month: 'long' })}{critical && ' · △ Переход'}</p>
+                {!plan.entries.length && <p className={styles.emptyDay}>Нет событий</p>}
+              </header>
+              <Timeline day={day} scale={scale} layout={layouts[index]} height={height} week onMove={onMove} onBreak={onBreak} onDropTask={onDropTask} />
+              <div className={styles.weekFooter}>
+                {plan.free.length > 0 && <Link className={styles.weekFree} to={newTaskLink(date, plan.free[0].start)}>+ Свободное время</Link>}
+              </div>
+            </section>
+          })}
+        </div>
       </div>
       <ul className={styles.legend}>
         {Object.entries(taskTypes).map(([type, label]) => <li key={type} data-type={type}>● {label}</li>)}

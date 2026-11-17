@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
+import { useUnsavedChanges } from '../../app/pwa/unsavedChanges'
 import { paths, taskPath } from '../../app/router/paths'
 import { dateInTimeZone, parseDate } from '../../shared/lib/calendar'
 import { DatePicker } from '../../shared/ui/pickers/DatePicker'
 import { Select } from '../../shared/ui/pickers/Select'
 import { TimePicker } from '../../shared/ui/pickers/TimePicker'
 import { RhythmDisclaimer, RhythmHeader } from '../biorhythms/RhythmControls'
-import { demoProfile } from '../profile/demoProfile'
+import { usePreferences } from '../settings/usePreferences'
 import { formatTaskRange, isPositiveDuration, taskStatusOptions, taskTypes } from './model'
 import type { Task, TaskDraft, TaskType } from './model'
 import { TaskContext } from './TaskContext'
@@ -22,10 +23,11 @@ export function TaskFormPage() {
   const { taskId } = useParams()
   const [params] = useSearchParams()
   const tasks = useTasks()
+  const { timeZone } = usePreferences()
   const task = tasks.find((item) => item.id === taskId)
   if (taskId && !task) return <TaskMissing />
 
-  const initialDate = parseDate(params.get('date')) ?? dateInTimeZone(new Date(), demoProfile.timeZone)
+  const initialDate = parseDate(params.get('date')) ?? dateInTimeZone(new Date(), timeZone)
   const proposedTime = params.get('time') ?? ''
   const initialTime = isTime(proposedTime) ? proposedTime : ''
   return <TaskForm key={taskId ?? 'new'} task={task} initialDate={initialDate} initialTime={initialTime} />
@@ -42,14 +44,17 @@ export function TaskMissing() {
 
 function TaskForm({ task, initialDate, initialTime }: { task?: Task; initialDate: string; initialTime: string }) {
   const navigate = useNavigate()
-  const [values, setValues] = useState<FormValues>(() => task
+  const [initialValues] = useState<FormValues>(() => task
     ? { ...task, duration: task.duration === null ? '' : String(task.duration) }
     : { title: '', description: '', type: 'intellectual', date: initialDate, startTime: initialTime, duration: '', status: 'planned' })
+  const [values, setValues] = useState(initialValues)
   const [showTime, setShowTime] = useState(false)
   const [error, setError] = useState('')
   const returnTo = task ? taskPath(task.id) : paths.tasks
   const duration = values.duration === '' ? null : Number(values.duration)
   const range = values.startTime && (duration === null || isPositiveDuration(duration)) ? formatTaskRange(values.startTime, duration) : null
+  useUnsavedChanges(showTime || (Object.keys(initialValues) as Array<keyof FormValues>)
+    .some((key) => values[key] !== initialValues[key]))
 
   function change<K extends keyof FormValues>(key: K, value: FormValues[K]) {
     setValues((previous) => ({ ...previous, [key]: value }))

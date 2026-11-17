@@ -5,23 +5,54 @@ import { PickerPopover } from './PickerPopover'
 import styles from './Pickers.module.css'
 
 const weekdays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
+const monthOffsets = Array.from({ length: 12 }, (_, index) => index)
 
-export function DatePicker({ label, value, onChange, displayValue, variant }: {
+export function DatePicker({ label, value, onChange, displayValue, variant, maxDate }: {
   label: string
   value: string
   onChange: (value: string) => void
   displayValue?: string
   variant?: 'field' | 'toolbar'
+  maxDate?: string
 }) {
-  const [active, setActive] = useState(value)
-  const grid = useRef<HTMLDivElement>(null)
+  const [active, setActive] = useState(maxDate && value > maxDate ? maxDate : value)
+  const [view, setView] = useState<'days' | 'months' | 'years'>('days')
+  const [yearInput, setYearInput] = useState('')
+  const calendar = useRef<HTMLDivElement>(null)
   const heading = useId()
   const month = startOfMonth(active)
   const first = startOfWeek(month)
+  const year = active.slice(0, 4)
+  const yearStart = year + '-01-01'
+  const yearText = yearInput.trim()
+  const requestedYear = yearText.padStart(4, '0')
+  const validYear = /^\d{1,4}$/.test(yearText) && (!maxDate || requestedYear <= maxDate.slice(0, 4))
   const dateLabel = displayValue ?? formatDate(value, { day: 'numeric', month: 'long', year: 'numeric' }).replace(/ г\.$/, '')
 
+  function monthAllowed(date: string) {
+    return Boolean(parseDate(date)) && (!maxDate || startOfMonth(date) <= maxDate)
+  }
+
   function showMonth(next: string) {
-    if (parseDate(next)) setActive(next)
+    if (monthAllowed(next)) setActive(maxDate && next > maxDate ? maxDate : next)
+  }
+
+  function showView(next: 'days' | 'months' | 'years') {
+    if (next === 'years') setYearInput(year)
+    setView(next)
+    requestAnimationFrame(() => {
+      const target = calendar.current?.querySelector<HTMLElement>('[data-picker-focus]')
+      target?.focus({ preventScroll: true })
+      if (target instanceof HTMLInputElement) target.select()
+      target?.scrollIntoView({ block: 'nearest' })
+    })
+  }
+
+  function chooseYear() {
+    if (!validYear) return
+    const next = shiftMonth(active, (Number(requestedYear) - Number(year)) * 12)
+    setActive(maxDate && next > maxDate ? maxDate : next)
+    showView('months')
   }
 
   function handleDayKey(event: KeyboardEvent<HTMLButtonElement>, date: string) {
@@ -39,20 +70,56 @@ export function DatePicker({ label, value, onChange, displayValue, variant }: {
     }
     event.preventDefault()
     if (!parseDate(next)) return
-    setActive(next)
-    requestAnimationFrame(() => grid.current?.querySelector<HTMLButtonElement>('[data-day="' + next + '"]')?.focus())
+    const target = maxDate && next > maxDate ? maxDate : next
+    setActive(target)
+    requestAnimationFrame(() => calendar.current?.querySelector<HTMLButtonElement>('[data-day="' + target + '"]')?.focus())
   }
 
   return (
-    <PickerPopover label={label} value={dateLabel} icon="date" variant={variant} onOpen={() => setActive(value)}>
+    <PickerPopover label={label} value={dateLabel} icon="date" variant={variant} layoutKey={view} onOpen={() => {
+      setActive(maxDate && value > maxDate ? maxDate : value)
+      setView('days')
+    }}>
       {(close) => (
-        <>
+        <div ref={calendar}>
           <div className={styles.calendarHeader}>
-            <button type="button" aria-label="Предыдущий месяц" onClick={() => showMonth(shiftMonth(active, -1))}>‹</button>
-            <strong id={heading} aria-live="polite">{formatDate(month, { month: 'long', year: 'numeric' }).replace(/ г\.$/, '')}</strong>
-            <button type="button" aria-label="Следующий месяц" onClick={() => showMonth(shiftMonth(active, 1))}>›</button>
+            <button className={styles.monthArrow} type="button" aria-label="Предыдущий месяц"
+              disabled={view !== 'days' || !monthAllowed(shiftMonth(active, -1))} onClick={() => showMonth(shiftMonth(active, -1))}>‹</button>
+            <div id={heading} className={styles.calendarHeading} aria-live="polite">
+              <button type="button" aria-label={`Выбрать месяц: ${formatDate(month, { month: 'long' })}`}
+                aria-expanded={view === 'months'} onClick={() => showView(view === 'months' ? 'days' : 'months')}>
+                {formatDate(month, { month: 'long' })}
+              </button>
+              <button type="button" aria-label={`Выбрать год: ${year}`} aria-expanded={view === 'years'}
+                onClick={() => showView(view === 'years' ? 'days' : 'years')}>{year}<span className={styles.chevron} aria-hidden="true" /></button>
+            </div>
+            <button className={styles.monthArrow} type="button" aria-label="Следующий месяц"
+              disabled={view !== 'days' || !monthAllowed(shiftMonth(active, 1))} onClick={() => showMonth(shiftMonth(active, 1))}>›</button>
           </div>
-          <div ref={grid} role="grid" aria-labelledby={heading} className={styles.calendar}>
+          {view === 'years' && <div className={styles.yearPicker}>
+            <label>Год
+              <input type="text" inputMode="numeric" maxLength={4} value={yearInput} data-picker-focus=""
+                onChange={(event) => setYearInput(event.target.value)} onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault()
+                    chooseYear()
+                  }
+                }} />
+            </label>
+            <button type="button" className={styles.apply} disabled={!validYear} onClick={chooseYear}>Выбрать месяц</button>
+          </div>}
+          {view === 'months' && <div className={styles.monthPicker} role="group" aria-label={`Месяцы ${year} года`}>
+            {monthOffsets.map((offset) => {
+              const date = shiftMonth(yearStart, offset)
+              const current = date === month
+              return <button key={date} type="button" aria-pressed={current} disabled={!monthAllowed(date)}
+                data-picker-focus={current ? '' : undefined} onClick={() => {
+                  showMonth(shiftMonth(active, offset - Number(active.slice(5, 7)) + 1))
+                  showView('days')
+                }}>{formatDate(date, { month: 'long' })}</button>
+            })}
+          </div>}
+          {view === 'days' && <div role="grid" aria-labelledby={heading} className={styles.calendar}>
             <div role="row" className={styles.calendarRow}>
               {weekdays.map((day) => <span role="columnheader" key={day}>{day}</span>)}
             </div>
@@ -62,15 +129,15 @@ export function DatePicker({ label, value, onChange, displayValue, variant }: {
                   <div role="gridcell" aria-selected={date === value} key={date}>
                     <button type="button" data-day={date} data-outside={startOfMonth(date) !== month}
                       data-picker-focus={date === active ? '' : undefined} tabIndex={date === active ? 0 : -1}
-                      disabled={!parseDate(date)} aria-label={formatDate(date, { dateStyle: 'full' })}
+                      disabled={!parseDate(date) || (maxDate !== undefined && date > maxDate)} aria-label={formatDate(date, { dateStyle: 'full' })}
                       onKeyDown={(event) => handleDayKey(event, date)} onClick={() => { close(); onChange(date) }}
                     >{Number(date.slice(-2))}</button>
                   </div>
                 ))}
               </div>
             ))}
-          </div>
-        </>
+          </div>}
+        </div>
       )}
     </PickerPopover>
   )

@@ -96,25 +96,16 @@
 .primary { color: var(--color-surface); background: var(--color-accent); }
 
 .timelineFrame {
-  padding-block-end: 24px;
+  padding-block: 10px 24px;
+  overflow-x: auto;
 }
 
 .timeline {
   position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  margin-inline-start: 44px;
   isolation: isolate;
 }
 
-.timeline[data-rail='true'] {
-  grid-template-columns: minmax(0, 1fr) 18px clamp(210px, 32%, 270px);
-}
-
-.track, .rail {
-  position: relative;
-  min-inline-size: 0;
-}
+.dayTimeline { margin-inline-start: 44px; }
 
 .hour {
   position: absolute;
@@ -135,15 +126,18 @@
 
 .slot, .freeSlot {
   position: absolute;
-  inset-inline: 0;
   min-inline-size: 0;
 }
 
-.slot { z-index: 3; }
+.slot { z-index: 3; container-type: inline-size; }
+.slot[data-gutter='true'] { padding-inline-end: 4px; }
 .slot > .card { block-size: 100%; }
-.slot[data-compact='true'] .cardDetails { display: none; }
+.slot[data-compact='true'][data-point='false'] .cardLink { display: grid; align-content: center; grid-template-columns: minmax(0, 1fr); }
+.slot[data-compact='true'][data-point='false'] .cardDetails { display: none; }
+.slot[data-point='true'] .cardDetails { font-size: 11px; line-height: 12px; }
 
 .freeSlot {
+  inset-inline: 0;
   border-radius: var(--radius-control);
   background: var(--color-accent-soft);
 }
@@ -205,60 +199,32 @@
   margin-inline-end: 0;
 }
 
+@container (max-width: 220px) {
+  .slot .cardHeading { display: grid; grid-template-rows: 20px 16px; gap: 0; }
+  .slot .cardTime { padding-inline-end: 26px; font-size: 11px; white-space: nowrap; }
+  .slot .cardLink { padding-inline: 6px; }
+  .slot .handle { inline-size: 24px; block-size: 24px; }
+  .slot[data-point='true'] .cardHeading { grid-template-rows: repeat(2, 16px); }
+  .slot[data-point='true'] .handle { block-size: 20px; }
+}
+
 .cardLink:hover strong { text-decoration: underline; }
 .cardLink:focus-visible, .handle:focus-visible, .free:focus-visible { outline-offset: -2px; }
 
 .handle {
   position: absolute;
-  inset-block-start: 2px;
-  inset-inline-end: 4px;
+  inset-block-start: 0;
+  inset-inline-end: 0;
+  inline-size: 32px;
+  block-size: 24px;
   border: 0;
   border-radius: var(--radius-badge);
   background: var(--color-surface);
   color: var(--entry-fg);
   font-weight: var(--weight-bold);
-  padding: 1px 5px;
+  padding: 0;
   cursor: grab;
 }
-
-.timeline .handle {
-  inset-block-start: 0;
-  inset-inline-end: 0;
-  inline-size: 32px;
-  block-size: 22px;
-  padding: 0;
-}
-
-.callout .handle {
-  block-size: 32px;
-}
-
-.shortMarker {
-  block-size: 100%;
-  border-radius: 2px;
-  background: var(--entry-fg);
-}
-
-.shortMarker[data-conflict='true'] { background: #c94055; }
-
-.callout {
-  position: absolute;
-  inset-inline: 0;
-}
-
-.callout > .card { block-size: 100%; }
-.callout .cardLink { block-size: 100%; padding-block: 5px; }
-
-.connectors {
-  display: block;
-  inline-size: 18px;
-  block-size: 100%;
-  overflow: visible;
-  pointer-events: none;
-}
-
-.connectors line { stroke: var(--entry-fg, var(--color-accent)); stroke-opacity: .6; }
-.connectors circle { fill: var(--entry-fg, var(--color-accent)); }
 
 .free {
   display: flex;
@@ -279,11 +245,6 @@
   justify-content: flex-start;
   gap: 8px;
   font-size: 12px;
-}
-
-.free[data-callout='true'] {
-  border-radius: var(--radius-badge);
-  background: var(--color-accent-soft);
 }
 
 .free span {
@@ -321,26 +282,39 @@
 .weekStats span { padding: 5px 16px; font-size: var(--text-note); }
 .weekStats span:nth-child(2) { color: #a26825; background: var(--color-routine-soft); }
 
+.weekScroll { overflow-x: auto; padding-block-end: 10px; }
+
 .week {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-rows: auto auto auto;
   align-items: stretch;
-  gap: 8px;
+  gap: 0 8px;
 }
+
+.weekHours {
+  position: sticky;
+  inset-inline-start: 0;
+  grid-area: 2 / 1;
+  z-index: 4;
+  background: var(--color-surface);
+}
+
+.weekHours .hour { border: 0; }
+.weekHours .hour span { inset-inline-start: 0; }
 
 .weekDay {
   display: grid;
-  align-content: start;
+  grid-row: 1 / span 3;
+  grid-template-rows: subgrid;
   min-inline-size: 0;
-  min-block-size: 600px;
-  gap: 10px;
-  padding: 11px;
-  border: 1px solid transparent;
   border-radius: var(--radius-card);
   background: #f8f7fc;
 }
 
-.weekDay[data-selected='true'] { border-color: var(--color-accent); background: var(--color-accent-soft); }
+.weekDay[data-selected='true'] { box-shadow: inset 0 0 0 1px var(--color-accent); background: var(--color-accent-soft); }
+.weekHeader { display: grid; align-content: start; gap: 8px; padding: 11px 11px 16px; }
+.weekFooter { padding: 12px 11px; }
+.weekTimeline .freeSlot { background: color-mix(in srgb, var(--color-accent-soft) 70%, var(--color-surface)); }
 
 .weekDate {
   display: grid;
@@ -359,12 +333,6 @@
 .weekDate small, .weekDate span { color: var(--color-text-muted); font-size: var(--text-note); }
 .weekDay progress { inline-size: 100%; block-size: 6px; accent-color: var(--color-accent); }
 
-.weekDay .card { min-block-size: 74px; }
-.weekDay .cardTime, .weekDay .card strong { display: block; }
-.weekDay .cardLink { padding: 6px 7px; }
-.weekDay .cardTime { padding-inline-end: 24px; }
-.weekDay .card small { margin-block-start: 4px; }
-.weekDay [data-type='break'] { padding: 6px 7px; }
 .weekFree { color: var(--color-text-muted); font-size: var(--text-note); text-decoration: none; }
 .legend { list-style: none; margin: 0; padding: 0; font-size: var(--text-note); }
 .legend li { color: var(--entry-fg); }

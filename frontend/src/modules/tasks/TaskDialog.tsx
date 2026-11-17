@@ -2,10 +2,13 @@ import { useEffect, useId, useRef } from 'react'
 import type { ReactNode } from 'react'
 import styles from './Tasks.module.css'
 
-export function TaskDialog({ title, children, onClose }: {
+export function TaskDialog({ title, children, onClose, compact = false, hideCloseButton = false, className }: {
   title: string
   children: ReactNode
   onClose: () => void
+  compact?: boolean
+  hideCloseButton?: boolean
+  className?: string
 }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const titleId = useId()
@@ -18,7 +21,8 @@ export function TaskDialog({ title, children, onClose }: {
   return (
     <dialog
       ref={dialog}
-      className={styles.dialog}
+      className={className ? `${styles.dialog} ${className}` : styles.dialog}
+      data-compact={compact || undefined}
       aria-labelledby={titleId}
       onCancel={(event) => { event.preventDefault(); onClose() }}
       onClick={(event) => { if (event.target === event.currentTarget) onClose() }}
@@ -26,7 +30,7 @@ export function TaskDialog({ title, children, onClose }: {
       <div className={styles.dialogBody}>
         <div className={styles.dialogHeader}>
           <h2 id={titleId}>{title}</h2>
-          <button className={styles.button} aria-label="Закрыть" type="button" onClick={onClose}>×</button>
+          {!compact && !hideCloseButton && <button className={styles.button} aria-label="Закрыть" type="button" onClick={onClose}>×</button>}
         </div>
         {children}
       </div>

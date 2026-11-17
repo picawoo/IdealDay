@@ -1,31 +1,76 @@
-interface Anchor {
-  minute: number
-  height: number
-}
+import { intersects } from '../tasks/timeIntervals.ts'
+import type { Interval } from '../tasks/timeIntervals.ts'
+import type { DaySegment } from './dayPlan.ts'
 
 const pixelsPerMinute = 1.6
-const calloutGap = 6
+const minimumCardHeight = 48
+const minimumPointHeight = 52
+const minimumLaneWidth = 128
 
-export function layoutTimeline<T extends Anchor>(start: number, end: number, anchors: readonly T[]) {
-  const sorted = [...anchors].sort((a, b) => a.minute - b.minute)
-  const requiredHeight = sorted.reduce((sum, { height }) => sum + height, 0)
-    + Math.max(0, sorted.length - 1) * calloutGap
-  const height = Math.max((end - start) * pixelsPerMinute, requiredHeight)
-  const offset = (minute: number) => (minute - start) / (end - start) * height
-  let next = 0
-  const callouts = sorted.map((anchor) => {
-    const y = offset(anchor.minute)
-    const top = Math.max(next, y - anchor.height / 2)
-    next = top + anchor.height + calloutGap
-    return { ...anchor, y, top }
-  })
-
-  // Pack crowded callouts at the end inside the rail without moving their time anchors.
-  let limit = height
-  for (let index = callouts.length - 1; index >= 0; index--) {
-    const callout = callouts[index]
-    callout.top = Math.min(callout.top, limit - callout.height)
-    limit = callout.top - calloutGap
+export function createTimeScale(start: number, end: number) {
+  return {
+    start,
+    end,
+    height: (end - start) * pixelsPerMinute,
+    offset: (minute: number) => (minute - start) * pixelsPerMinute,
+    minuteAt: (offset: number) => Math.min(end - 1, Math.max(start, Math.round(start + offset / pixelsPerMinute))),
   }
-  return { height, offset, callouts }
 }
+
+export type TimeScale = ReturnType<typeof createTimeScale>
+
+interface Box extends Interval {
+  segment: DaySegment
+}
+
+interface Slot extends Box {
+  lane: number
+  lanes: number
+  laneSpan: number
+}
+
+export function layoutTimeline(entries: readonly DaySegment[], scale: TimeScale) {
+  const boxes = entries.map((segment): Box => {
+    const start = scale.offset(segment.start)
+    const minimumHeight = segment.entry.duration === null ? minimumPointHeight : minimumCardHeight
+    return { segment, start, end: Math.max(scale.offset(segment.end), start + minimumHeight) }
+  }).sort((a, b) => a.start - b.start || b.end - a.end)
+
+  const slots: Slot[] = []
+  let group: Array<Box & { lane: number }> = []
+  let lanes: Box[][] = []
+  let groupEnd = 0
+  let maxLanes = 1
+
+  function appendGroup() {
+    maxLanes = Math.max(maxLanes, lanes.length)
+    for (const box of group) {
+      let right = box.lane + 1
+      while (right < lanes.length && !lanes[right].some((other) => intersects(box, other))) right++
+      slots.push({ ...box, lanes: lanes.length, laneSpan: right - box.lane })
+    }
+    group = []
+    lanes = []
+    groupEnd = 0
+  }
+
+  for (const box of boxes) {
+    if (box.start >= groupEnd) appendGroup()
+    const available = lanes.findIndex((items) => items[items.length - 1].end <= box.start)
+    const lane = available < 0 ? lanes.length : available
+    if (available < 0) lanes.push([box])
+    else lanes[lane].push(box)
+    group.push({ ...box, lane })
+    groupEnd = Math.max(groupEnd, box.end)
+  }
+  appendGroup()
+
+  return {
+    slots,
+    minWidth: maxLanes * minimumLaneWidth,
+    // Leave room below the final time line without stretching the scale or adding free time.
+    height: boxes.reduce((height, box) => Math.max(height, box.end), scale.height),
+  }
+}
+
+export type TimelineLayout = ReturnType<typeof layoutTimeline>

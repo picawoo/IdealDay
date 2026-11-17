@@ -328,6 +328,9 @@
 .dialogHeader { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .dialogHeader h2 { font-size: 22px; font-weight: var(--weight-extra-bold); }
 .dialogHeader button { min-block-size: 36px; padding-inline: 12px; }
+.dialog[data-compact] { inline-size: min(400px, calc(100% - 32px)); }
+.dialog[data-compact] .dialogBody { justify-items: center; gap: 20px; padding: 24px; text-align: center; }
+.dialog[data-compact] .dialogHeader h2 { margin: 0; }
 .dialogBody > p, .dialogForm > p:not(.interval) { color: var(--color-text-muted); font-size: 13px; }
 .dialogActions { display: grid; grid-template-columns: 1fr 1.15fr; gap: 14px; }
 .page .error { color: #c94055; font-size: 13px; }

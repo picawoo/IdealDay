@@ -1,15 +1,16 @@
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import calendarIcon from '../../../assets/icons/calendar.svg'
 import styles from './Pickers.module.css'
 
-export function PickerPopover({ label, value, icon, kind = 'dialog', variant = 'field', onOpen, children }: {
+export function PickerPopover({ label, value, icon, kind = 'dialog', variant = 'field', onOpen, layoutKey, children }: {
   label: string
   value: string
   icon: 'date' | 'time' | 'select'
   kind?: 'dialog' | 'listbox'
   variant?: 'field' | 'toolbar'
   onOpen?: () => void
+  layoutKey?: string
   children: (close: () => void) => ReactNode
 }) {
   const id = useId()
@@ -41,6 +42,10 @@ export function PickerPopover({ label, value, icon, kind = 'dialog', variant = '
     menu.style.maxHeight = height + 'px'
     menu.style.top = (useAbove ? box.top - gap - height : box.bottom + gap) + 'px'
   }, [icon])
+
+  useLayoutEffect(() => {
+    if (open && layoutKey !== undefined) place()
+  }, [layoutKey, open, place])
 
   useEffect(() => {
     if (!open) return

@@ -1,5 +1,6 @@
 import { isBreak, isScheduleEntry, taskStatuses } from './model'
 import type { ScheduleBreak, ScheduleEntry, TaskDraft } from './model'
+import { taskActivity } from './taskActivity'
 import { intersects, toInterval } from './timeIntervals'
 
 const storageKey = 'ideal-day.tasks.v1'
@@ -44,7 +45,7 @@ function subscribe(listener: () => void) {
   }
 }
 
-function commit(change: (entries: readonly ScheduleEntry[]) => readonly ScheduleEntry[]) {
+function commit(change: (entries: readonly ScheduleEntry[]) => readonly ScheduleEntry[], taskId?: string) {
   const current = parseTasks(window.localStorage.getItem(storageKey))
   const next = change(current)
   if (!next.every(isScheduleEntry)) throw new Error('Invalid task data')
@@ -52,6 +53,14 @@ function commit(change: (entries: readonly ScheduleEntry[]) => readonly Schedule
   window.localStorage.setItem(storageKey, raw)
   rawSnapshot = raw
   snapshot = next
+  if (taskId !== undefined) {
+    const previous = current.find((entry) => entry.id === taskId)
+    const updated = next.find((entry) => entry.id === taskId)
+    if ((!updated && previous && !isBreak(previous))
+      || (updated && !isBreak(updated) && updated.status === 'completed' && updated !== previous)) {
+      taskActivity.record(taskId)
+    }
+  }
   notify()
 }
 
@@ -79,10 +88,11 @@ function ensureFree(entry: ScheduleEntry, entries: readonly ScheduleEntry[]) {
 
 export const taskRepository = {
   read,
+  readSaved: () => parseTasks(window.localStorage.getItem(storageKey)),
   subscribe,
   create(draft: TaskDraft) {
     const task = { ...draft, id: crypto.randomUUID() }
-    commit((tasks) => [...tasks, task])
+    commit((tasks) => [...tasks, task], task.id)
     return task
   },
   update(id: string, patch: Partial<TaskDraft>) {
@@ -90,11 +100,12 @@ export const taskRepository = {
       const task = entries.find((entry) => entry.id === id)
       if (!task || isBreak(task)) throw new Error('Task is missing')
       const updated = { ...task, ...patch }
+      if ((Object.keys(patch) as Array<keyof TaskDraft>).every((field) => task[field] === updated[field])) return entries
       if (updated.date !== task.date || updated.startTime !== task.startTime || updated.duration !== task.duration) {
         ensureFree(updated, entries)
       }
       return entries.map((entry) => entry.id === id ? updated : entry)
-    })
+    }, id)
   },
   createBreak(draft: Pick<ScheduleBreak, 'date' | 'startTime' | 'duration'>) {
     const entry: ScheduleBreak = { ...draft, id: crypto.randomUUID(), kind: 'break' }
@@ -104,6 +115,6 @@ export const taskRepository = {
     })
   },
   remove(id: string) {
-    commit((tasks) => tasks.filter((task) => task.id !== id))
+    commit((tasks) => tasks.filter((task) => task.id !== id), id)
   },
 }

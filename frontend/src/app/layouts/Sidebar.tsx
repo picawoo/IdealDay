@@ -7,8 +7,8 @@ import sunIcon from '../../assets/icons/sun.svg'
 import tasksIcon from '../../assets/icons/tasks.svg'
 import userIcon from '../../assets/icons/user.svg'
 import waveIcon from '../../assets/icons/wave.svg'
-import { DemoAvatar } from '../../modules/profile/DemoAvatar'
-import { demoProfile } from '../../modules/profile/demoProfile'
+import { ProfileAvatar } from '../../modules/profile/ProfileAvatar'
+import { usePreferences } from '../../modules/settings/usePreferences'
 import { formatDate, parseDate } from '../../shared/lib/calendar'
 import { paths } from '../router/paths'
 import styles from './Sidebar.module.css'
@@ -25,9 +25,11 @@ const items = [
 
 export function Sidebar() {
   const { pathname, search } = useLocation()
+  const { profile, rhythm, isDemo } = usePreferences()
   const isRhythmPage = pathname === paths.dashboard || pathname === paths.biorhythms
   const isSchedulePage = pathname === paths.schedule
-  const showDemoAccount = isRhythmPage || isSchedulePage || pathname === paths.tasks || pathname.startsWith(paths.tasks + '/')
+  const showAccount = isRhythmPage || isSchedulePage || pathname === paths.tasks || pathname.startsWith(paths.tasks + '/')
+    || pathname === paths.profile || pathname === paths.settings
   const date = isRhythmPage || isSchedulePage ? parseDate(new URLSearchParams(search).get('date')) : null
 
   function rhythmLink(path: string) {
@@ -66,18 +68,18 @@ export function Sidebar() {
           на привычки, а не вопреки<br />
           своему самочувствию.
         </p>
-        {showDemoAccount && <p className={styles.chronotype}>Ваш хронотип: {demoProfile.chronotype}</p>}
+        {showAccount && <p className={styles.chronotype}>Ваш хронотип: {rhythm.label.toLocaleLowerCase('ru')}</p>}
       </div>
-      {showDemoAccount && (
+      {showAccount && (
         <Link
           className={styles.account}
           to={paths.profile}
-          title={'Тестовая дата рождения: ' + formatDate(demoProfile.birthDate, { dateStyle: 'short' })}
+          title={isDemo ? 'Тестовая дата рождения: ' + formatDate(profile.birthDate, { dateStyle: 'short' }) : 'Открыть профиль'}
         >
-          <DemoAvatar />
+          <ProfileAvatar src={profile.avatar} />
           <span className={styles.accountText}>
-            <strong>{demoProfile.name}</strong>
-            <small>Демонстрационный профиль</small>
+            <strong>{profile.name}</strong>
+            <small>{isDemo ? 'Демонстрационный профиль' : 'Личный профиль'}</small>
           </span>
         </Link>
       )}

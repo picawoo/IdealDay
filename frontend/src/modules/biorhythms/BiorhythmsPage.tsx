@@ -1,7 +1,7 @@
 import { Link } from 'react-router'
 import { paths } from '../../app/router/paths'
 import { formatDate } from '../../shared/lib/calendar'
-import { demoProfile } from '../profile/demoProfile'
+import { usePreferences } from '../settings/usePreferences'
 import { CycleCards } from './CycleCards'
 import { upcomingTransitions } from './model'
 import { RhythmCalendar } from './RhythmCalendar'
@@ -13,7 +13,7 @@ import styles from './Rhythm.module.css'
 export function BiorhythmsPage() {
   const { date, period, tab, setDate, setPeriod, setTab } = useRhythmDate('month')
   const calendar = tab === 'calendar'
-  const birthDate = demoProfile.birthDate
+  const { profile: { birthDate } } = usePreferences()
   const dateLabel = formatDate(date, calendar ? { month: 'long', year: 'numeric' } : { dateStyle: 'long' }).replace(/ г\.$/, '')
 
   return (

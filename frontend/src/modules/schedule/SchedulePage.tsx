@@ -5,7 +5,7 @@ import { addDays, dateInTimeZone, dateRange, formatDate, parseDate, startOfWeek 
 import { cycleOnDate, cycles, upcomingTransitions } from '../biorhythms/model'
 import { DatePicker } from '../../shared/ui/pickers/DatePicker'
 import { RhythmDisclaimer, RhythmHeader } from '../biorhythms/RhythmControls'
-import { demoProfile } from '../profile/demoProfile'
+import { usePreferences } from '../settings/usePreferences'
 import { isBreak } from '../tasks/model'
 import type { ScheduleBreak, Task } from '../tasks/model'
 import { ScheduleConflictError, taskRepository } from '../tasks/taskRepository'
@@ -23,10 +23,11 @@ type Modal = { type: 'move'; id: string; date: string; time: string } | { type: 
 export function SchedulePage() {
   const [params, setParams] = useSearchParams()
   const entries = useScheduleEntries()
+  const { profile, timeZone } = usePreferences()
   const [modal, setModal] = useState<Modal | null>(null)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
-  const today = dateInTimeZone(new Date(), demoProfile.timeZone)
+  const today = dateInTimeZone(new Date(), timeZone)
   const date = parseDate(params.get('date')) ?? today
   const view: View = params.get('view') === 'week' ? 'week' : 'day'
   const first = startOfWeek(date)
@@ -34,7 +35,7 @@ export function SchedulePage() {
   const days = dates.map((day) => ({
     date: day,
     plan: getDayPlan(entries, day),
-    critical: cycles.some((cycle) => cycleOnDate(demoProfile.birthDate, day, cycle).critical),
+    critical: cycles.some((cycle) => cycleOnDate(profile.birthDate, day, cycle).critical),
   }))
   const selected = days.find((day) => day.date === date) ?? days[0]
   const plan = selected.plan
@@ -46,8 +47,8 @@ export function SchedulePage() {
     day: 'numeric', month: 'short', year: first.slice(0, 4) !== last.slice(0, 4) ? 'numeric' : undefined,
   })
   const weekLabel = fromLabel + (sameMonth ? '–' : ' — ') + formatDate(last, { day: 'numeric', month: 'long', year: 'numeric' }).replace(/ г\.$/, '')
-  const hasConflicts = days.some((day) => day.plan.entries.some((entry) => entry.lanes > 1))
-  const followingTransition = view === 'day' ? upcomingTransitions(demoProfile.birthDate, date)[0] : undefined
+  const hasConflicts = days.some((day) => day.plan.entries.some(({ conflict }) => conflict))
+  const followingTransition = view === 'day' ? upcomingTransitions(profile.birthDate, date)[0] : undefined
   const moving = modal?.type === 'move' ? entries.find((entry) => entry.id === modal.id && !isBreak(entry)) : undefined
 
   function select(nextDate: string, nextView = view) {

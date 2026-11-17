@@ -4,7 +4,7 @@ import { paths, taskPath } from '../../app/router/paths'
 import { dateInTimeZone, formatDate } from '../../shared/lib/calendar'
 import { Select } from '../../shared/ui/pickers/Select'
 import { RhythmDisclaimer, RhythmHeader } from '../biorhythms/RhythmControls'
-import { demoProfile } from '../profile/demoProfile'
+import { usePreferences } from '../settings/usePreferences'
 import { compareByDate, isTaskStatus, isTaskType, matchesScope, taskStatuses, taskStatusOptions, taskTypes } from './model'
 import type { TaskScope, TaskType } from './model'
 import { TaskDialog } from './TaskDialog'
@@ -21,10 +21,11 @@ const scopes: { id: TaskScope; label: string }[] = [
 
 export function TasksPage() {
   const tasks = useTasks()
+  const { timeZone } = usePreferences()
   const [params, setParams] = useSearchParams()
   const [dialog, setDialog] = useState<'search' | 'type' | null>(null)
   const [error, setError] = useState('')
-  const today = dateInTimeZone(new Date(), demoProfile.timeZone)
+  const today = dateInTimeZone(new Date(), timeZone)
   const query = params.get('q') ?? ''
   const scope = scopes.find((item) => item.id === params.get('scope'))?.id ?? 'all'
   const statusParam = params.get('status')

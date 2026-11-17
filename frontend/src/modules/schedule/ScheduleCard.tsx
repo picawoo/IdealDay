@@ -14,9 +14,8 @@ export function ScheduleCard({ segment, onMove, onBreak }: {
   onMove: (task: Task) => void
   onBreak: (id: string) => void
 }) {
-  const { entry, start, end, lanes } = segment
+  const { entry, start, end, conflict } = segment
   const time = minuteToTime(start) + (entry.duration === null ? '' : '–' + minuteToTime(end))
-  const conflict = lanes > 1
   if (isBreak(entry)) {
     return (
       <button type="button" className={styles.card} data-type="break" data-conflict={conflict} onClick={() => onBreak(entry.id)}>
@@ -29,7 +28,8 @@ export function ScheduleCard({ segment, onMove, onBreak }: {
   const details = entry.duration === null ? 'Длительность не указана'
     : taskTypes[entry.type] + ' · ' + durationLabel(end - start) + ' · ' + taskStatuses[entry.status]
   return (
-    <article className={styles.card} data-type={entry.type} data-conflict={conflict} title={time + ' · ' + entry.title + ' · ' + details}>
+    <article className={styles.card} data-type={entry.type} data-conflict={conflict}
+      title={time + ' · ' + entry.title + ' · ' + details + (conflict ? ' · Пересечение' : '')}>
       <Link className={styles.cardLink} to={taskPath(entry.id)}>
         <span className={styles.cardHeading}><span className={styles.cardTime}>{time}</span><strong>{entry.title}</strong></span>
         <small className={styles.cardDetails}>{details}{conflict && <> · <span className={styles.conflictLabel}>Пересечение</span></>}</small>

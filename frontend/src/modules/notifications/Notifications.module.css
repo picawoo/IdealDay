@@ -1,0 +1,92 @@
+.bell { position: relative; }
+.bell:hover { background: var(--color-accent-soft); }
+
+.unread {
+  position: absolute;
+  inset: 9px 9px auto auto;
+  inline-size: 9px;
+  block-size: 9px;
+  border: 2px solid var(--color-surface);
+  border-radius: 50%;
+  background: var(--color-accent);
+}
+
+.dialog:modal {
+  inline-size: min(600px, calc(100vw - 64px));
+  overflow: hidden;
+  box-shadow: 0 16px 60px rgb(37 35 68 / .13);
+  line-height: 1.45;
+}
+
+.dialog:modal::backdrop { background: rgb(37 35 68 / .24); }
+.dialog > div {
+  display: flex;
+  flex-direction: column;
+  max-block-size: inherit;
+}
+.dialog > div > :not(.history) { flex: none; }
+.dialog :is(h2, p) { margin: 0; }
+
+.history {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-block-size: 0;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+}
+
+.card {
+  display: grid;
+  flex: none;
+  gap: 8px;
+  min-inline-size: 0;
+  padding: 16px;
+  border-radius: var(--radius-card);
+  background: var(--color-accent-soft);
+  overflow-wrap: anywhere;
+}
+
+.timestamp { color: var(--color-accent); font-size: 12px; font-weight: var(--weight-semi-bold); }
+.title { color: var(--color-text); font-size: 16px; font-weight: var(--weight-bold); }
+.detail { color: var(--color-text-muted); font-size: 13px; }
+
+.card[data-inactive] { background: var(--color-neutral-soft); }
+.card[data-inactive] :is(.timestamp, .title) { color: var(--color-text-muted); }
+.completed {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-badge);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: var(--weight-semi-bold);
+}
+
+.action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-block-size: var(--size-button);
+  padding-inline: 20px;
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-text);
+  text-align: center;
+  text-decoration: none;
+  font-size: var(--text-control);
+  font-weight: var(--weight-bold);
+}
+
+.action:hover { background: var(--color-background); }
+.openTask { color: var(--color-accent); }
+
+.system { display: grid; justify-items: start; gap: 8px; }
+.system p { color: var(--color-text-muted); font-size: 13px; }
+.system button:disabled { opacity: .66; cursor: not-allowed; }
