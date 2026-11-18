@@ -1,5 +1,6 @@
 from datetime import date
 
+from app.core.enums import Chronotype
 from app.schemas.biorhythm import (
     CriticalCycleOut,
     CriticalDayOut,
@@ -10,8 +11,10 @@ from app.schemas.biorhythm import (
     PeriodResponse,
     TodayResponse,
 )
+from app.schemas.recommendations import RecommendationResponse
 from app.services.biorhythm import calculate_day, iter_days
 from app.services.critical import CriticalDay, analyze_day, find_critical_days
+from app.services.recommender import recommend
 
 
 def _critical_cycles(critical: CriticalDay) -> list[CriticalCycleOut]:
@@ -54,3 +57,9 @@ def critical_report(birth_date: date, date_from: date, date_to: date) -> Critica
             for day in find_critical_days(birth_date, date_from, date_to)
         ],
     )
+
+
+def recommendation_report(
+    birth_date: date, target_date: date, chronotype: Chronotype
+) -> RecommendationResponse:
+    return RecommendationResponse.model_validate(recommend(birth_date, target_date, chronotype))

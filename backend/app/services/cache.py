@@ -6,6 +6,8 @@ from datetime import date
 from pydantic import BaseModel, ValidationError
 from redis.asyncio import Redis
 
+from app.core.enums import Chronotype
+
 logger = logging.getLogger(__name__)
 
 CACHE_VERSION = "v1"
@@ -18,6 +20,10 @@ def biorhythm_key(birth_date: date, date_from: date, date_to: date) -> str:
 
 def critical_key(birth_date: date, date_from: date, date_to: date) -> str:
     return f"crit:{CACHE_VERSION}:{birth_date}:{date_from}:{date_to}"
+
+
+def recommendation_key(birth_date: date, chronotype: Chronotype, target_date: date) -> str:
+    return f"rec:{CACHE_VERSION}:{birth_date}:{chronotype.value}:{target_date}"
 
 
 class CacheService:
