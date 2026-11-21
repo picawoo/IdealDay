@@ -28,7 +28,7 @@
 }
 
 .caption {
-  color: var(--color-nav-caption);
+  color: var(--color-text-muted);
   font-size: var(--text-nav-caption);
   font-weight: var(--weight-bold);
   letter-spacing: 1.5px;
@@ -61,7 +61,7 @@
 .navLink:hover,
 .navLink[aria-current='page'] {
   background-color: var(--color-accent-soft);
-  color: var(--color-accent);
+  color: var(--color-accent-text);
 }
 
 .navLink[aria-current='page'] {
@@ -77,38 +77,22 @@
   mask-repeat: no-repeat;
 }
 
-.tip {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sidebar-gap);
+.chronotype {
+  display: grid;
   flex: none;
-  min-block-size: 160px;
-  padding: 18px var(--space-sidebar-inline);
+  gap: 6px;
+  padding: 10px 12px;
   border-radius: var(--radius-sidebar-card);
-  background-color: var(--color-background);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
 }
 
-.tipTitle,
-.tipText,
-.chronotype {
-  margin: 0;
-}
-
-.tipTitle {
-  font-size: var(--text-control);
-  font-weight: var(--weight-bold);
-}
-
-.tipText {
-  color: var(--color-text-muted);
-  font-size: var(--text-note);
-}
-
-.chronotype {
-  color: var(--color-accent);
-  font-size: 10px;
-  font-weight: var(--weight-bold);
-}
+.chronotype[data-chronotype='lark'] { background: var(--color-routine-soft); color: var(--color-routine-text); }
+.chronotype[data-chronotype='pigeon'] { background: var(--color-intellectual-soft); color: var(--color-intellectual-text); }
+.chronotype strong { display: flex; align-items: center; gap: 7px; font-size: var(--text-field-label); }
+.chronotype p { margin: 0; color: var(--color-text); font-size: 12px; }
+.chronotype a { justify-self: start; border-radius: var(--radius-badge); color: inherit; font-size: 12px; font-weight: var(--weight-bold); }
+.chronotype a:hover { text-decoration: none; }
 
 .account {
   display: flex;
@@ -140,7 +124,4 @@
     min-block-size: 0;
   }
 
-  .tip {
-    min-block-size: 118px;
-  }
 }

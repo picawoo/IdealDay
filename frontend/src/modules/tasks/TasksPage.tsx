@@ -1,14 +1,17 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
-import { paths, taskPath } from '../../app/router/paths'
-import { dateInTimeZone, formatDate } from '../../shared/lib/calendar'
-import { Select } from '../../shared/ui/pickers/Select'
-import { RhythmDisclaimer, RhythmHeader } from '../biorhythms/RhythmControls'
+import { TaskOriginLink } from '../../app/router/TaskOriginLink'
+import { paths, taskListContext } from '../../app/router/paths'
+import { usePendingAction } from '../../shared/lib/usePendingAction'
+import { addDays, dateInTimeZone, formatDate, parseDate } from '../../shared/lib/calendar'
+import { RhythmHeader } from '../biorhythms/RhythmControls'
 import { usePreferences } from '../settings/usePreferences'
-import { compareByDate, isTaskStatus, isTaskType, matchesScope, taskStatuses, taskStatusOptions, taskTypes } from './model'
+import { compareByDate, isTaskStatus, isTaskType, matchesScope, taskStatuses, taskTypes } from './model'
 import type { TaskScope, TaskType } from './model'
+import { TaskSearch } from './TaskSearch'
+import { TaskMarkers } from './TaskMarkers'
 import { TaskDialog } from './TaskDialog'
-import { taskRepository } from './taskRepository'
+import { taskRepository, taskWriteError } from './taskRepository'
 import { useTasks } from './useTasks'
 import styles from './Tasks.module.css'
 
@@ -16,18 +19,22 @@ const scopes: { id: TaskScope; label: string }[] = [
   { id: 'all', label: 'Все задачи' },
   { id: 'today', label: 'Сегодня' },
   { id: 'upcoming', label: 'Предстоящие' },
+  { id: 'inProgress', label: 'В процессе' },
   { id: 'completed', label: 'Выполнено' },
 ]
 
 export function TasksPage() {
-  const tasks = useTasks()
   const { timeZone } = usePreferences()
   const [params, setParams] = useSearchParams()
   const [dialog, setDialog] = useState<'search' | 'type' | null>(null)
   const [error, setError] = useState('')
   const today = dateInTimeZone(new Date(), timeZone)
+  const range = parseDate(params.get('period')) ?? today
+  const tasks = useTasks(addDays(range, -30), addDays(range, 30))
   const query = params.get('q') ?? ''
-  const scope = scopes.find((item) => item.id === params.get('scope'))?.id ?? 'all'
+  const scope = scopes.find((item) => item.id === params.get('scope'))?.id ?? 'today'
+  const context = taskListContext(params)
+  const { pending, run } = usePendingAction()
   const statusParam = params.get('status')
   const status = isTaskStatus(statusParam) ? statusParam : null
   const typeParam = params.get('type')
@@ -49,19 +56,38 @@ export function TasksPage() {
     setParams(next, { replace })
   }
 
+  function setScope(value: TaskScope) {
+    const next = new URLSearchParams(params)
+    next.set('scope', value)
+    next.delete('status')
+    setParams(next)
+    setDialog(null)
+  }
+
+  function togglePlanned() {
+    const next = new URLSearchParams(params)
+    if (status === 'planned') next.delete('status')
+    else {
+      next.set('status', 'planned')
+      next.set('scope', 'all')
+    }
+    setParams(next)
+    setDialog(null)
+  }
+
   function reset() {
     setParams({})
     setDialog(null)
   }
 
-  function complete(id: string, checked: boolean) {
+  function complete(id: string, checked: boolean) { void run(async () => {
     try {
-      taskRepository.update(id, { status: checked ? 'completed' : 'planned' })
+      await taskRepository.update(id, { status: checked ? 'completed' : 'planned' })
       setError('')
-    } catch {
-      setError('Не удалось сохранить статус задачи.')
+    } catch (error) {
+      setError(taskWriteError(error, 'Не удалось сохранить статус задачи.'))
     }
-  }
+  }) }
 
   return (
     <div className={styles.page}>
@@ -70,7 +96,7 @@ export function TasksPage() {
         {[
           { label: 'Всего задач', value: tasks.length },
           { label: 'На сегодня', value: counts.today, hint: formatDate(today, { dateStyle: 'long' }) },
-          { label: 'В процессе', value: tasks.filter((task) => task.status === 'inProgress').length },
+          { label: 'В процессе', value: counts.inProgress },
           { label: 'Выполнено', value: counts.completed },
         ].map(({ label, value, hint }) => (
           <div className={styles.stat} key={label}>
@@ -82,17 +108,20 @@ export function TasksPage() {
 
       <section className={styles.filters} aria-label="Фильтры задач">
         <div className={styles.filterBar}>
-          <div className={styles.search}>
-            <button type="button" aria-label="Поиск и фильтры" onClick={() => setDialog('search')}>⌕</button>
-            <input type="search" aria-label="Поиск задачи" placeholder="Найти задачу…" value={query} onChange={(event) => filter('q', event.currentTarget.value, true)} />
-          </div>
-          <button className={styles.button} type="button" onClick={() => setDialog('search')}>Статус: {status ? taskStatuses[status] : 'все'} ▾</button>
+          <TaskSearch value={query} onChange={value => filter('q', value, true)} onFilters={() => setDialog('search')} />
           <button className={styles.button} type="button" onClick={() => setDialog('type')}>Тип: {type ? taskTypes[type] : 'все'} ▾</button>
-          <Link className={styles.primary} to={paths.taskNew}>+ Новая задача</Link>
+          <Link className={styles.primary} to={paths.taskNew + context}>+ Новая задача</Link>
         </div>
+        {status && <div className={styles.activeFilters}><button className={styles.secondary} type="button"
+          aria-label={'Сбросить фильтр: ' + taskStatuses[status]} onClick={() => filter('status', '')}>{taskStatuses[status]} · ×</button></div>}
+        {scope === 'all' && <div className={styles.seriesRange}>
+          <button className={styles.button} type="button" onClick={() => filter('period', addDays(range, -61))}>Раньше</button>
+          <span>Повторения: {addDays(range, -30)} — {addDays(range, 30)}</span>
+          <button className={styles.button} type="button" onClick={() => filter('period', addDays(range, 61))}>Позже</button>
+        </div>}
         <div className={styles.scopes} role="group" aria-label="Период и выполнение">
           {scopes.map(({ id, label }) => (
-            <button key={id} type="button" aria-pressed={scope === id} onClick={() => filter('scope', id === 'all' ? '' : id)}>{label} · {counts[id]}</button>
+            <button key={id} type="button" aria-pressed={scope === id} onClick={() => setScope(id)}>{label} · {counts[id]}</button>
           ))}
         </div>
       </section>
@@ -111,8 +140,8 @@ export function TasksPage() {
           <tbody>
             {visible.map((task) => (
               <tr key={task.id}>
-                <td><input type="checkbox" aria-label={'Выполнена: ' + task.title} checked={task.status === 'completed'} onChange={(event) => complete(task.id, event.currentTarget.checked)} /></td>
-                <td><Link to={taskPath(task.id)}>{task.title}</Link></td>
+                <td><input type="checkbox" aria-label={'Выполнена: ' + task.title} checked={task.status === 'completed'} disabled={pending} onChange={(event) => complete(task.id, event.currentTarget.checked)} /></td>
+                <td><TaskOriginLink id={task.id}>{task.title}</TaskOriginLink> <TaskMarkers task={task} /></td>
                 <td><span data-type={task.type}>{taskTypes[task.type]}</span></td>
                 <td>
                   {formatDate(task.date, { day: 'numeric', month: 'short' })} · {task.startTime}
@@ -125,23 +154,19 @@ export function TasksPage() {
         </table>
         {!visible.length && (
           <div className={styles.empty}>
-            <h3>{tasks.length ? 'Ничего не найдено' : 'Пока нет задач'}</h3>
+            <h3>{scope === 'today' && counts.today === 0 ? 'На сегодня пока нет задач' : tasks.length ? 'Ничего не найдено' : 'Пока нет задач'}</h3>
             <p>{tasks.length ? 'Попробуйте другой запрос или сбросьте фильтры.' : 'Создайте задачу, чтобы добавить её в список.'}</p>
             {tasks.length > 0 && <button type="button" className={styles.secondary} onClick={reset}>Сбросить фильтры</button>}
-            <Link className={styles.primary} to={paths.taskNew}>+ Создать задачу</Link>
+            <Link className={styles.primary} to={paths.taskNew + context}>+ Создать задачу</Link>
           </div>
         )}
       </section>
-      <RhythmDisclaimer />
 
       {dialog === 'search' && (
         <TaskDialog title="Поиск и фильтры" onClose={() => setDialog(null)}>
-          <label className={styles.field}>Поиск задачи
-            <input type="search" value={query} onChange={(event) => filter('q', event.currentTarget.value, true)} />
-          </label>
-          <Select label="Статус" value={status ?? ''} options={[{ value: '', label: 'Все статусы' }, ...taskStatusOptions]}
-            onChange={(value) => { filter('status', value); setDialog(null) }} />
-          {scopes.map(({ id, label }) => <button key={id} className={styles.button} type="button" onClick={() => { filter('scope', id === 'all' ? '' : id); setDialog(null) }}>{label}</button>)}
+          <TaskSearch value={query} onChange={value => filter('q', value, true)} />
+          <button className={status === 'planned' ? styles.secondary : styles.button} type="button"
+            aria-pressed={status === 'planned'} onClick={togglePlanned}>Только запланированные</button>
           <button className={styles.secondary} type="button" onClick={reset}>Сбросить фильтры</button>
         </TaskDialog>
       )}

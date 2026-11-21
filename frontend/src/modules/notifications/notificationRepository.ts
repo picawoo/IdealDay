@@ -1,18 +1,17 @@
-import { parseDate } from '../../shared/lib/calendar'
-import { cycles } from '../biorhythms/model'
-import { isTime } from '../tasks/timeIntervals'
-import type { Notice } from './model'
+import { createLocalRecordStore } from '../../shared/lib/localRecordStore.ts'
+import { withStorageLock } from '../../shared/lib/storageLock.ts'
+import { parseDate } from '../../shared/lib/calendar.ts'
+import { cycles } from '../biorhythms/model.ts'
+import { isTime } from '../tasks/timeIntervals.ts'
+import type { Notice } from './model.ts'
 
 const storageKey = 'ideal-day.notifications.v1'
-const empty: readonly Notice[] = []
-let cachedRaw: string | null = null
-let snapshot = empty
-const listeners = new Set<() => void>()
+const expiredKey = 'ideal-day.notifications.expired.v1'
 
 function isNotice(value: unknown): value is Notice {
   if (!value || typeof value !== 'object') return false
   const item = value as Partial<Notice>
-  if (typeof item.id !== 'string' || typeof item.createdAt !== 'number' || !Number.isFinite(item.createdAt)
+  if (typeof item.id !== 'string' || typeof item.createdAt !== 'number' || !(Math.abs(item.createdAt) <= 8.64e15)
     || typeof item.read !== 'boolean') return false
   if (item.kind === 'task') {
     return typeof item.taskId === 'string' && typeof item.title === 'string' && isTime(item.startTime)
@@ -20,59 +19,58 @@ function isNotice(value: unknown): value is Notice {
   }
   return item.kind === 'cycle' && typeof item.date === 'string' && parseDate(item.date) !== null
     && cycles.some((cycle) => cycle.id === item.cycle)
+    && (item.dayCycles === undefined || Array.isArray(item.dayCycles) && item.dayCycles.length >= 1 && item.dayCycles.length <= 3
+      && new Set(item.dayCycles).size === item.dayCycles.length && item.dayCycles.every(id => cycles.some(cycle => cycle.id === id)))
 }
 
-function read() {
-  try {
-    const raw = window.localStorage.getItem(storageKey)
-    if (raw !== cachedRaw) {
-      const parsed: unknown = raw === null ? empty : JSON.parse(raw)
-      if (!Array.isArray(parsed) || !parsed.every(isNotice)) throw new Error('Invalid notification history')
-      snapshot = parsed
-      cachedRaw = raw
-    }
-  } catch {
-    // Keep the last valid snapshot until local storage becomes available again.
-  }
-  return snapshot
-}
+const store = createLocalRecordStore(storageKey, isNotice)
 
-function write(items: readonly Notice[]) {
-  const raw = JSON.stringify(items)
-  window.localStorage.setItem(storageKey, raw)
-  cachedRaw = raw
-  snapshot = items
-  listeners.forEach((listener) => listener())
-}
-
-function subscribe(listener: () => void) {
-  listeners.add(listener)
-  function onStorage(event: StorageEvent) {
-    if (event.key === null || event.key === storageKey) listener()
-  }
-  window.addEventListener('storage', onStorage)
-  return () => {
-    listeners.delete(listener)
-    window.removeEventListener('storage', onStorage)
-  }
-}
-
-export async function withNotificationLock(action: () => void) {
-  if (navigator.locks?.request) await navigator.locks.request(storageKey, action)
-  else action()
+function expiredIds(): Set<string> {
+  const raw = window.localStorage.getItem(expiredKey)
+  if (raw === null) return new Set()
+  const ids: unknown = JSON.parse(raw)
+  if (!Array.isArray(ids) || ids.some(id => typeof id !== 'string')) throw new Error('Invalid expired notifications')
+  return new Set(ids as string[])
 }
 
 export const notificationRepository = {
-  read,
-  subscribe,
-  // The scheduler rechecks history and appends within withNotificationLock.
+  read: store.read,
+  subscribe: store.subscribe,
+  readIssue: store.readIssue,
   append(items: readonly Notice[]) {
-    if (items.length) write([...items, ...read()])
+    return withStorageLock(storageKey, () => {
+      let added: Notice[] = []
+      if (items.length) store.commit((current) => {
+        const seen = expiredIds()
+        current.forEach(({ id }) => seen.add(id))
+        added = items.filter(({ id }) => {
+          if (seen.has(id)) return false
+          seen.add(id)
+          return true
+        })
+        return added.length ? [...added, ...current] : current
+      })
+      return added
+    })
+  },
+  prune(isExpired: (item: Notice) => boolean) {
+    return withStorageLock(storageKey, () => {
+      if (store.readIssue()) return
+      store.commit(items => {
+        const removed = items.filter(isExpired)
+        if (!removed.length) return items
+        const ids = expiredIds()
+        removed.forEach(({ id }) => ids.add(id))
+        window.localStorage.setItem(expiredKey, JSON.stringify([...ids]))
+        const removing = new Set(removed)
+        return items.filter(item => !removing.has(item))
+      }, false)
+    })
   },
   markAllRead() {
-    return withNotificationLock(() => {
-      const items = read()
-      if (items.some((item) => !item.read)) write(items.map((item) => item.read ? item : { ...item, read: true }))
+    return withStorageLock(storageKey, () => {
+      store.commit((items) => items.some((item) => !item.read)
+        ? items.map((item) => item.read ? item : { ...item, read: true }) : items)
     })
   },
 }

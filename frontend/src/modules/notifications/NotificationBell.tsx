@@ -1,13 +1,16 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { Link } from 'react-router'
-import { paths, taskPath } from '../../app/router/paths'
+import { TaskOriginLink } from '../../app/router/TaskOriginLink'
+import { paths } from '../../app/router/paths'
 import bellIcon from '../../assets/icons/bell.svg'
 import { dateInTimeZone, formatDate } from '../../shared/lib/calendar'
-import { cycles } from '../biorhythms/model'
+import { cycles, transitionLabels } from '../biorhythms/model'
 import { usePreferences } from '../settings/usePreferences'
 import { taskActivity } from '../tasks/taskActivity'
 import { TaskDialog } from '../tasks/TaskDialog'
-import { useTasks } from '../tasks/useTasks'
+import { lookup } from '../tasks/recurrence'
+import { isBreak } from '../tasks/model'
+import { useTaskRecords } from '../tasks/useTasks'
 import { notificationRepository } from './notificationRepository'
 import { orderNotifications } from './orderNotifications'
 import { minuteMs, taskReminderLabel } from './taskReminderLabel'
@@ -22,12 +25,16 @@ function timestampLabel(timestamp: number, timeZone: string, today: string) {
 
 function NotificationDialog({ onClose }: { onClose: () => void }) {
   const items = useSyncExternalStore(notificationRepository.subscribe, notificationRepository.read)
-  const entries = useTasks()
+  const records = useTaskRecords()
   useSyncExternalStore(taskActivity.subscribe, taskActivity.revision)
   const { timeZone } = usePreferences()
   const [now, setNow] = useState(Date.now)
   const today = dateInTimeZone(new Date(now), timeZone)
-  const rows = orderNotifications(items, new Map(entries.map((task) => [task.id, task])), now, timeZone)
+  const tasks = new Map(items.flatMap(item => {
+    const task = item.kind === 'task' ? lookup(records, item.taskId) : undefined
+    return task && !isBreak(task) ? [[task.id, task] as const] : []
+  }))
+  const rows = orderNotifications(items, tasks, now, timeZone)
 
   useEffect(() => {
     let timer: number
@@ -72,7 +79,7 @@ function NotificationDialog({ onClose }: { onClose: () => void }) {
                     <span className={styles.completed}><span aria-hidden="true">✓</span> Выполнено</span>
                   )}
                   {row.task && row.group !== 'inactive' && (
-                    <Link className={`${styles.action} ${styles.openTask}`} to={taskPath(row.task.id)} onClick={onClose}>Открыть задачу</Link>
+                    <TaskOriginLink className={`${styles.action} ${styles.openTask}`} id={row.task.id} onClick={onClose}>Открыть задачу</TaskOriginLink>
                   )}
                 </>
               ) : (
@@ -80,8 +87,7 @@ function NotificationDialog({ onClose }: { onClose: () => void }) {
                   <time className={styles.timestamp} dateTime={row.item.date}>
                     {formatDate(row.item.date, { day: 'numeric', month: 'long' })}
                   </time>
-                  <p className={styles.title}>{cycles.find(({ id }) => id === row.item.cycle)?.label} цикл около нуля.</p>
-                  <p className={styles.detail}>Это переход математической модели.</p>
+                  <p className={styles.title}>{row.item.dayCycles ? transitionLabels[row.item.dayCycles.length] + ' · ' + cycles.filter(cycle => row.item.dayCycles?.includes(cycle.id)).map(cycle => cycle.label).join(', ') : cycles.find(({ id }) => id === row.item.cycle)?.label + ' цикл около нуля.'}</p>
                 </>
               )}
             </li>

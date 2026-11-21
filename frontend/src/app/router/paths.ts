@@ -17,3 +17,13 @@ export const paths = {
 export function taskPath(id: string) {
   return paths.tasks + '/' + encodeURIComponent(id)
 }
+
+export function taskListLink(params: URLSearchParams) {
+  const query = params.get('list')
+  return query ? `${paths.tasks}?${new URLSearchParams(query)}` : paths.tasks
+}
+
+export function taskListContext(params: URLSearchParams) {
+  const list = params.toString()
+  return list ? `?${new URLSearchParams({ list })}` : ''
+}

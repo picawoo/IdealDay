@@ -1,12 +1,14 @@
 import { Link } from 'react-router'
 import type { DragEvent } from 'react'
+import { TaskOriginLink } from '../../app/router/TaskOriginLink'
 import { paths } from '../../app/router/paths'
+import calendarIcon from '../../assets/icons/calendar.svg'
 import { formatDate } from '../../shared/lib/calendar'
 import { isBreak, taskTypes } from '../tasks/model'
 import type { Task } from '../tasks/model'
-import { minuteToTime } from '../tasks/timeIntervals'
-import { durationLabel } from './dayPlan'
+import { dateAndTime, durationLabel, timelineRange, timelineTime } from './dayPlan'
 import type { DayPlan } from './dayPlan'
+import { minutesPerDay } from '../tasks/timeIntervals'
 import type { Interval } from '../tasks/timeIntervals'
 import { dragType, ScheduleCard } from './ScheduleCard'
 import { createTimeScale, layoutTimeline } from './timelineLayout'
@@ -16,6 +18,7 @@ import styles from './Schedule.module.css'
 const minimumFreeLabelMinutes = 15
 
 interface CardActions {
+  taskOrigin: string
   onMove: (task: Task) => void
   onBreak: (id: string) => void
   onDropTask: (id: string, date: string, minute?: number) => void
@@ -25,10 +28,11 @@ export interface CalendarDay {
   date: string
   plan: DayPlan
   critical: boolean
+  unscheduled: readonly Task[]
 }
 
 function newTaskLink(date: string, minute: number): string {
-  const query = new URLSearchParams({ date, time: minuteToTime(minute) })
+  const query = new URLSearchParams(dateAndTime(date, minute))
   return paths.taskNew + '?' + query
 }
 
@@ -39,7 +43,7 @@ function FreeWindow({ date, interval: { start, end }, compact }: {
 }) {
   return (
     <Link className={styles.free} data-compact={compact} to={newTaskLink(date, start)}>
-      <span className={styles.freeTime}>{minuteToTime(start)}–{minuteToTime(end)}</span>
+      <span className={styles.freeTime}>{timelineRange(start, end)}</span>
       <span>Свободно · {durationLabel(end - start)}</span>
     </Link>
   )
@@ -56,13 +60,25 @@ function HourLines({ scale: { start, end, offset }, labels }: {
   scale: TimeScale
   labels: boolean
 }) {
-  return Array.from({ length: (end - start) / 60 + 1 }, (_, index) => {
-    const hour = start + 60 * index
-    return <div className={styles.hour} key={hour} style={{ top: offset(hour) }}>{labels && <span>{minuteToTime(hour)}</span>}</div>
-  })
+  const hours = [start]
+  for (let hour = Math.floor(start / 60) * 60 + 60; hour < end; hour += 60) hours.push(hour)
+  hours.push(end)
+  return hours.map(hour => <div className={styles.hour} key={hour} style={{ top: offset(hour) }}>{labels && <span>{timelineTime(hour)}</span>}</div>)
 }
 
-function Timeline({ day: { plan, date }, onMove, onBreak, onDropTask, scale, layout, height = layout.height, week = false }: CardActions & {
+function MidnightBoundary({ scale, date, showLabel = true }: { scale: TimeScale; date?: string; showLabel?: boolean }) {
+  if (scale.start >= minutesPerDay || scale.end <= minutesPerDay) return null
+  const nextDate = date && dateAndTime(date, minutesPerDay).date
+  return <div className={styles.midnight} style={{ top: scale.offset(minutesPerDay) }}>
+    {showLabel && <span className={styles.midnightLabel}>
+      <img src={calendarIcon} width="14" height="14" alt="" />
+      {nextDate && <time dateTime={nextDate}>{formatDate(nextDate, { day: 'numeric', month: 'long' })}</time>}
+      <span>{nextDate ? 'следующий день' : 'Следующий день'}</span>
+    </span>}
+  </div>
+}
+
+function Timeline({ day: { plan, date }, taskOrigin, onMove, onBreak, onDropTask, scale, layout, height = layout.height, week = false }: CardActions & {
   day: CalendarDay
   scale: TimeScale
   layout: TimelineLayout
@@ -77,7 +93,8 @@ function Timeline({ day: { plan, date }, onMove, onBreak, onDropTask, scale, lay
     event.preventDefault()
     event.stopPropagation()
     const top = event.currentTarget.getBoundingClientRect().top
-    onDropTask(id, date, scale.minuteAt(event.clientY - top))
+    const minute = scale.minuteAt(event.clientY - top)
+    if (minute >= plan.boundary && minute < plan.boundary + 1440) onDropTask(id, date, minute)
   }
 
   return (
@@ -85,6 +102,7 @@ function Timeline({ day: { plan, date }, onMove, onBreak, onDropTask, scale, lay
       style={{ blockSize: height, minInlineSize: layout.minWidth }} onDragOver={allowDrop} onDrop={drop}
       aria-label={week ? `Почасовое расписание: ${formatDate(date, { dateStyle: 'long' })}` : 'Почасовое расписание'}>
       <HourLines scale={scale} labels={!week} />
+      <MidnightBoundary scale={scale} date={date} showLabel={!week} />
       {plan.free.map((free) => (
         <div className={styles.freeSlot} key={free.start} style={{ top: offset(free.start), height: offset(free.end) - offset(free.start) }}>
           {!week && free.end - free.start >= minimumFreeLabelMinutes && (
@@ -100,7 +118,7 @@ function Timeline({ day: { plan, date }, onMove, onBreak, onDropTask, scale, lay
             insetInlineStart: lane / lanes * 100 + '%',
             width: laneSpan / lanes * 100 + '%',
           }}>
-          <ScheduleCard segment={segment} onMove={onMove} onBreak={onBreak} />
+          <ScheduleCard taskOrigin={taskOrigin} segment={segment} onMove={onMove} onBreak={onBreak} />
         </div>
       ))}
     </div>
@@ -122,7 +140,7 @@ export function DayTimeline({ day, ...actions }: CardActions & { day: CalendarDa
   )
 }
 
-export function WeekCalendar({ days, selectedDate, today, onSelectDay, onMove, onBreak, onDropTask }: CardActions & {
+export function WeekCalendar({ days, selectedDate, today, onSelectDay, taskOrigin, onMove, onBreak, onDropTask }: CardActions & {
   days: CalendarDay[]
   selectedDate: string
   today: string
@@ -144,13 +162,14 @@ export function WeekCalendar({ days, selectedDate, today, onSelectDay, onMove, o
         <span>Задач: {tasks.size} · {durationLabel(workMinutes)}</span>
         {criticalDays > 0 && <span>Дней с переходом цикла: {criticalDays}</span>}
       </div>
-      <div className={styles.weekScroll} tabIndex={0} aria-label="Недельная сетка">
-        <div className={styles.week} style={{ gridTemplateColumns: `44px ${columns.join(' ')}` }}>
+      <div className={styles.weekScroll} data-task-return-scroll tabIndex={0} aria-label="Недельная сетка">
+        <div className={styles.week} style={{ gridTemplateColumns: `56px ${columns.join(' ')}` }}>
           <div className={styles.weekHours} aria-hidden="true">
             <HourLines scale={scale} labels />
+            <MidnightBoundary scale={scale} />
           </div>
           {days.map((day, index) => {
-            const { date, plan, critical } = day
+            const { date, plan, critical, unscheduled } = day
             return <section key={date} className={styles.weekDay} data-selected={date === selectedDate} style={{ gridColumn: index + 2 }}
               onDragOver={allowDrop} onDrop={(event) => {
                 const id = event.dataTransfer.getData(dragType)
@@ -163,11 +182,14 @@ export function WeekCalendar({ days, selectedDate, today, onSelectDay, onMove, o
                   <strong>{formatDate(date, { day: 'numeric' })}</strong>
                   <span>{durationLabel(plan.taskMinutes)}</span>
                 </button>
-                <progress value={plan.taskMinutes} max={plan.end - plan.start} aria-label="Загрузка дня" />
+                <progress value={plan.taskMinutes} max={plan.window.end - plan.window.start} aria-label="Загрузка дня" />
+                {plan.end > minutesPerDay && <p className={styles.muted}>{formatDate(dateAndTime(date, minutesPerDay).date, { day: 'numeric', month: 'short' })} · следующий день</p>}
                 <p className={styles.muted}>{date === today ? 'Сегодня' : formatDate(date, { month: 'long' })}{critical && ' · △ Переход'}</p>
-                {!plan.entries.length && <p className={styles.emptyDay}>Нет событий</p>}
+                {unscheduled.length > 0 && <TaskOriginLink className={styles.weekFree} id={unscheduled[0].id} origin={taskOrigin}
+                  title={unscheduled.map(task => task.title).join(', ')}>Без времени: {unscheduled.length}</TaskOriginLink>}
+                {!plan.entries.length && !unscheduled.length && <p className={styles.emptyDay}>Нет событий</p>}
               </header>
-              <Timeline day={day} scale={scale} layout={layouts[index]} height={height} week onMove={onMove} onBreak={onBreak} onDropTask={onDropTask} />
+              <Timeline day={day} taskOrigin={taskOrigin} scale={scale} layout={layouts[index]} height={height} week onMove={onMove} onBreak={onBreak} onDropTask={onDropTask} />
               <div className={styles.weekFooter}>
                 {plan.free.length > 0 && <Link className={styles.weekFree} to={newTaskLink(date, plan.free[0].start)}>+ Свободное время</Link>}
               </div>

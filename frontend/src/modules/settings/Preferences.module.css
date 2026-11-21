@@ -123,12 +123,15 @@
 
 .primary, .save { background: var(--color-accent); color: var(--color-surface); }
 .save { min-inline-size: min(276px, 100%); }
-.secondary { background: var(--color-accent-soft); color: var(--color-accent); }
+.secondary { background: var(--color-accent-soft); color: var(--color-accent-text); }
 .danger { background: var(--color-danger-soft); color: #af374b; }
 .accountActions button:disabled { opacity: .66; cursor: not-allowed; }
 .profileActions button:disabled, .photoButton:disabled { opacity: .66; cursor: wait; }
 :is(.button, .secondary):not(:disabled):hover { filter: brightness(.98); }
 :is(.primary, .save):not(:disabled):hover { filter: brightness(.93); }
+
+.aside .secondary { background: var(--color-accent-label-bg); color: var(--color-accent-label-text); }
+.aside :is(.primary, .secondary, .button):not(:disabled):active { filter: brightness(.88); }
 
 .identity {
   display: flex;
@@ -143,26 +146,32 @@
   border: 0;
   padding: 4px 0;
   background: transparent;
-  color: var(--color-accent);
+  color: var(--color-accent-text);
   font-size: 12px;
   font-weight: var(--weight-bold);
   cursor: pointer;
 }
 
 .badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   justify-self: start;
   min-inline-size: 166px;
   padding: 6px 12px;
   border-radius: var(--radius-badge);
-  background: var(--color-accent-soft);
-  color: var(--color-accent);
+  background: var(--color-accent-label-bg);
+  color: var(--color-accent-label-text);
   text-align: center;
   font-size: 12px;
   font-weight: var(--weight-bold);
 }
 
+.chronotypeIcon { inline-size: 20px; block-size: 20px; flex: none; background: currentColor; mask-position: center; mask-size: contain; mask-repeat: no-repeat; }
+
 .focus { display: flex; justify-content: space-between; gap: 12px; color: var(--color-text-muted); font-size: 13px; }
-.focus strong, .hint strong { color: var(--color-accent); }
+.focus strong, .hint strong { color: var(--color-accent-text); }
 .cycle {
   display: grid;
   align-content: center;
@@ -194,3 +203,5 @@
 .hint p { color: var(--color-text-muted); font-size: 12px; }
 .aside .hint { min-block-size: 116px; }
 .page .error { color: #9b3348; font-size: 13px; }
+
+.timeZone { inline-size: min(100%, 360px); }

@@ -1,5 +1,8 @@
 import { parseDate } from '../../shared/lib/calendar.ts'
 import { demoProfile } from '../profile/demoProfile.ts'
+import { planningModes } from '../planner/config.ts'
+import type { PlanningMode, PreferredWindows } from '../planner/config.ts'
+import { isTaskType } from '../tasks/model.ts'
 import { isTime } from '../tasks/timeIntervals.ts'
 
 export const chronotypes = {
@@ -24,12 +27,46 @@ export interface LocalSettings {
   taskReminders: boolean
   cycleTransitions: boolean
   weeklyEmail: boolean
+  notificationDays?: NotificationDays
+}
+
+export type NotificationDays = 1 | 2 | 7 | 30
+export interface PlanningHours { wakeTime: string; sleepTime: string }
+export const defaultPlanning: PlanningHours = { wakeTime: '06:00', sleepTime: '23:00' }
+export const notificationDays = [1, 2, 7, 30] as const
+
+export function isPlanning(value: unknown): value is PlanningHours {
+  if (!value || typeof value !== 'object') return false
+  const { wakeTime, sleepTime } = value as Partial<PlanningHours>
+  return isTime(wakeTime) && isTime(sleepTime) && wakeTime !== sleepTime
+}
+
+export interface PlannerPreferences {
+  birthDate?: string
+  chronotype?: Chronotype
+  windows?: PreferredWindows
+  transitionReserve?: boolean
+  mode?: PlanningMode
+}
+
+export function isPlannerPreferences(value: unknown): value is PlannerPreferences {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const { birthDate, chronotype, windows, transitionReserve, mode } = value as PlannerPreferences
+  return (birthDate === undefined || typeof birthDate === 'string' && parseDate(birthDate) !== null)
+    && (chronotype === undefined || Object.hasOwn(chronotypes, chronotype))
+    && (mode === undefined || typeof mode === 'string' && Object.hasOwn(planningModes, mode))
+    && (transitionReserve === undefined || typeof transitionReserve === 'boolean')
+    && (windows === undefined || windows && typeof windows === 'object' && !Array.isArray(windows)
+      && Object.entries(windows).every(([type, items]) => isTaskType(type) && Array.isArray(items)
+        && items.length > 0 && items.every(item => item && isTime(item.start) && isTime(item.end) && item.start !== item.end)))
 }
 
 export interface SavedPreferences {
   profile?: LocalProfile
   settings?: LocalSettings
   timeZone?: string
+  planning?: PlanningHours
+  planner?: PlannerPreferences
 }
 
 export const defaultProfile: LocalProfile = {
@@ -37,7 +74,7 @@ export const defaultProfile: LocalProfile = {
   email: 'anna@example.com',
   birthDate: demoProfile.birthDate,
   chronotype: 'lark',
-  wakeTime: '07:00',
+  wakeTime: defaultPlanning.wakeTime,
   avatar: null,
 }
 
@@ -76,4 +113,5 @@ export function isSettings(value: unknown): value is LocalSettings {
   const settings = value as Partial<LocalSettings>
   return settings.language === 'ru' && typeof settings.taskReminders === 'boolean'
     && typeof settings.cycleTransitions === 'boolean' && typeof settings.weeklyEmail === 'boolean'
+    && (settings.notificationDays === undefined || notificationDays.includes(settings.notificationDays))
 }

@@ -19,6 +19,7 @@ export interface CycleNotice extends NotificationEntry {
   kind: 'cycle'
   date: string
   cycle: Cycle['id']
+  dayCycles?: Cycle['id'][]
 }
 
 export type Notice = TaskReminder | CycleNotice

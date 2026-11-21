@@ -1,60 +1,82 @@
 import { useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router'
-import { paths, taskPath } from '../../app/router/paths'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
+import { taskDestination } from '../../app/router/taskReturn'
+import { taskPath } from '../../app/router/paths'
+import { usePendingAction } from '../../shared/lib/usePendingAction'
 import { formatDate } from '../../shared/lib/calendar'
-import { RhythmDisclaimer, RhythmHeader } from '../biorhythms/RhythmControls'
+import { RhythmHeader } from '../biorhythms/RhythmControls'
 import { formatTaskRange, taskStatuses, taskTypes } from './model'
 import type { Task, TaskDraft } from './model'
+import { TaskMarkers } from './TaskMarkers'
+import { ruleLabel } from './recurrence'
+import type { Scope } from './recurrence'
+import { RecurrenceScopeDialog } from './RecurrenceScopeDialog'
 import { TaskContext } from './TaskContext'
 import { TaskDialog } from './TaskDialog'
 import { TaskMissing } from './TaskFormPage'
 import { TaskTimeDialog } from './TaskTimeDialog'
-import { ScheduleConflictError, taskRepository } from './taskRepository'
-import { useTasks } from './useTasks'
+import { taskRepository, taskWriteError } from './taskRepository'
+import { useTask } from './useTasks'
 import styles from './Tasks.module.css'
 
 export function TaskDetailPage() {
   const { taskId } = useParams()
-  const task = useTasks().find((item) => item.id === taskId)
-  return task ? <TaskDetail task={task} key={task.id} /> : <TaskMissing />
+  return <TaskDetailRoute key={taskId} taskId={taskId} />
 }
 
-function TaskDetail({ task }: { task: Task }) {
+function TaskDetailRoute({ taskId }: { taskId?: string }) {
+  const task = useTask(taskId)
+  const [initial] = useState(task)
+  const displayed = task ?? initial
+  return displayed ? <TaskDetail task={displayed} removed={!task} /> : <TaskMissing />
+}
+
+function TaskDetail({ task, removed }: { task: Task; removed: boolean }) {
   const navigate = useNavigate()
+  const [params] = useSearchParams()
+  const { state } = useLocation()
+  const back = taskDestination(params, state)
+  const { pending, run } = usePendingAction()
   const [dialog, setDialog] = useState<'delete' | 'time' | null>(null)
   const [error, setError] = useState('')
+  const [version, setVersion] = useState<number>()
   const dateLabel = formatDate(task.date, { dateStyle: 'long' })
   const completed = task.status === 'completed'
 
-  function update(patch: Partial<TaskDraft>) {
+  function update(patch: Partial<TaskDraft>) { void run(async () => {
     try {
-      taskRepository.update(task.id, patch)
+      await taskRepository.update(task.id, patch, dialog === 'time' ? version : undefined)
       setError('')
       setDialog(null)
     } catch (error) {
-      setError(error instanceof ScheduleConflictError ? error.message : 'Не удалось сохранить изменения задачи.')
+      setError(taskWriteError(error, 'Не удалось сохранить изменения задачи.'))
     }
-  }
+  }) }
 
-  function remove() {
+  function remove(scope: Scope = 'one') { void run(async () => {
     try {
-      taskRepository.remove(task.id)
-      navigate(paths.tasks, { replace: true })
-    } catch {
-      setError('Не удалось удалить задачу.')
+      if (scope !== 'one' && task.recurrence) {
+        await taskRepository.changeSeries({ ...task, recurrence: { ...task.recurrence, version: version ?? task.recurrence.version } }, scope)
+      } else await taskRepository.remove(task.id, version)
+      navigate(back.to, { replace: true, state: back.state })
+    } catch (error) {
+      setError(taskWriteError(error, 'Не удалось удалить задачу.'))
     }
-  }
+  }) }
+
+  if (removed && !dialog && !pending) return <TaskMissing />
 
   return (
     <div className={styles.page}>
-      <RhythmHeader title={task.title} subtitle={taskTypes[task.type] + ' · ' + dateLabel} backTo={paths.tasks} backLabel="К списку задач" />
+      <RhythmHeader title={task.title} subtitle={taskTypes[task.type] + ' · ' + dateLabel} backTo={back.to} backState={back.state} backLabel={back.label} />
       <div className={styles.columns}>
         <section className={styles.detail}>
           <div className={styles.badges}>
             <span className={styles.badge}>{taskStatuses[task.status]}</span>
             <span className={styles.badge} data-type={task.type}>{taskTypes[task.type]}</span>
           </div>
-          <h2>{task.title}</h2>
+          <h2>{task.title} <TaskMarkers task={task} /></h2>
+          {task.recurrence && <p>{task.recurrence.rule ? ruleLabel(task.recurrence.rule) : 'История повторения'}{task.recurrence.rule?.until && ' · до ' + formatDate(task.recurrence.rule.until, { dateStyle: 'short' })}</p>}
           <dl className={styles.metrics}>
             <div><dt>Дата</dt><dd>{dateLabel}</dd></div>
             <div><dt>Время</dt><dd>{formatTaskRange(task.startTime, task.duration)}</dd></div>
@@ -62,31 +84,30 @@ function TaskDetail({ task }: { task: Task }) {
           </dl>
           <h3>Описание</h3>
           {task.description && <p className={styles.detailDescription}>{task.description}</p>}
-          <div className={styles.interval}><strong>Планы изменились? Это нормально.</strong><p>Можно вручную изменить время начала задачи.</p></div>
           {!dialog && error && <p className={styles.error} role="alert">{error}</p>}
           <div className={styles.detailActions}>
-            <Link className={styles.secondary} to={taskPath(task.id) + '/edit'}>Изменить</Link>
-            <button className={styles.button} type="button" onClick={() => { setError(''); setDialog('time') }}>Перенести</button>
-            <button className={styles.primary} type="button" onClick={() => update({ status: completed ? 'planned' : 'completed' })}>{completed ? 'Вернуть в план' : '✓ Выполнить'}</button>
-            <button className={styles.danger} type="button" onClick={() => { setError(''); setDialog('delete') }}>Удалить</button>
+            <Link className={styles.secondary} to={taskPath(task.id) + '/edit' + (params.size ? `?${params}` : '')} state={state}>Изменить</Link>
+            <button className={styles.button} type="button" disabled={pending} onClick={() => { setError(''); setVersion(task.recurrence?.version); setDialog('time') }}>Перенести</button>
+            <button className={styles.primary} type="button" disabled={pending} onClick={() => update({ status: completed ? 'planned' : 'completed' })}>{completed ? 'Вернуть в план' : '✓ Выполнить'}</button>
+            <button className={styles.danger} type="button" disabled={pending} onClick={() => { setError(''); setVersion(task.recurrence?.version); setDialog('delete') }}>Удалить</button>
           </div>
         </section>
-        <TaskContext mode="detail" date={task.date} startTime={task.startTime} duration={task.duration} />
+        <TaskContext mode="detail" date={task.date} startTime={task.startTime} duration={task.duration} reasons={task.plannerReasons} />
       </div>
-      <RhythmDisclaimer />
-      {dialog === 'delete' && (
-        <TaskDialog title="Удалить задачу?" onClose={() => setDialog(null)}>
+      {dialog === 'delete' && task.recurrence && <RecurrenceScopeDialog action="delete" pending={pending} error={error} close={() => setDialog(null)} confirm={remove} />}
+      {dialog === 'delete' && !task.recurrence && (
+        <TaskDialog title="Удалить задачу?" onClose={() => { if (!pending) setDialog(null) }}>
           <p>Задача исчезнет из списка и с главной страницы.</p>
           <strong>{task.title}</strong>
           {error && <p className={styles.error} role="alert">{error}</p>}
           <div className={styles.dialogActions}>
-            <button className={styles.button} type="button" onClick={() => setDialog(null)}>Отмена</button>
-            <button className={styles.danger} type="button" onClick={remove}>Удалить задачу</button>
+            <button className={styles.button} type="button" disabled={pending} onClick={() => setDialog(null)}>Отмена</button>
+            <button className={styles.danger} type="button" disabled={pending} onClick={() => remove()}>Удалить задачу</button>
           </div>
         </TaskDialog>
       )}
       {dialog === 'time' && (
-        <TaskTimeDialog date={task.date} startTime={task.startTime} duration={task.duration} error={error} onClose={() => setDialog(null)} onConfirm={(startTime, date) => update({ startTime, date })} />
+        <TaskTimeDialog date={task.date} startTime={task.startTime} duration={task.duration} error={error} pending={pending} onClose={() => setDialog(null)} onConfirm={(startTime, date) => update({ startTime, date })} />
       )}
     </div>
   )

@@ -38,5 +38,5 @@
   font-weight: var(--weight-bold);
 }
 .primary { background: var(--color-accent); color: var(--color-surface); }
-.secondary { background: var(--color-surface); color: var(--color-accent); }
+.secondary { background: var(--color-surface); color: var(--color-accent-text); }
 .primary:disabled, .secondary:disabled { opacity: .65; cursor: wait; }

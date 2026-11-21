@@ -1,5 +1,16 @@
 import type { ScheduleEntry } from './model'
 
+const dayUnits = new Intl.NumberFormat('ru', { style: 'unit', unit: 'day', unitDisplay: 'long' })
+
+export function nextDaySuffix(days: number) {
+  return days === 1 ? ' следующего дня' : days > 1 ? ' через ' + dayUnits.format(days) : ''
+}
+
+export function formatPlannerReason(reason: string) {
+  // Older saved explanations used a compact suffix for each endpoint.
+  return reason.replace(/ \(\+1\)(?=–\d{2}:\d{2} \(\+1\))/g, '').replaceAll(' (+1)', nextDaySuffix(1))
+}
+
 export interface Interval {
   start: number
   end: number
@@ -26,7 +37,7 @@ export function minuteToTime(minute: number): string {
 }
 
 export function toInterval(entry: Pick<ScheduleEntry, 'date' | 'startTime' | 'duration'>): Interval | null {
-  if (entry.duration === null) return null
+  if (entry.duration === null || !isTime(entry.startTime)) return null
   const start = dayOffset(entry.date) + timeToMinute(entry.startTime)
   return { start, end: start + entry.duration }
 }

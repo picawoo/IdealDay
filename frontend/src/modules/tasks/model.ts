@@ -1,5 +1,6 @@
+import type { RepeatRule } from './recurrence.ts'
 import { parseDate } from '../../shared/lib/calendar.ts'
-import { isTime, minutesPerDay, minuteToTime, timeToMinute } from './timeIntervals.ts'
+import { isTime, minutesPerDay, minuteToTime, nextDaySuffix, timeToMinute } from './timeIntervals.ts'
 
 export const taskTypes = {
   intellectual: 'Интеллектуальная',
@@ -16,7 +17,7 @@ export const taskStatuses = {
 
 export type TaskType = keyof typeof taskTypes
 export type TaskStatus = keyof typeof taskStatuses
-export type TaskScope = 'all' | 'today' | 'upcoming' | 'completed'
+export type TaskScope = 'all' | 'today' | 'upcoming' | 'inProgress' | 'completed'
 
 export const taskStatusOptions = (Object.keys(taskStatuses) as TaskStatus[])
   .map((value) => ({ value, label: taskStatuses[value] }))
@@ -29,10 +30,13 @@ export interface TaskDraft {
   startTime: string
   duration: number | null
   status: TaskStatus
+  pinned?: boolean
+  plannerReasons?: string[]
 }
 
 export interface Task extends TaskDraft {
   id: string
+  recurrence?: { seriesId: string; origin: string; version: number; rule?: RepeatRule }
 }
 
 export interface ScheduleBreak {
@@ -75,6 +79,8 @@ export function isTask(value: unknown): value is Task {
     && isTaskType(task.type)
     && hasValidStart(task)
     && (task.duration === null || isPositiveDuration(task.duration))
+    && (task.pinned === undefined || typeof task.pinned === 'boolean')
+    && (task.plannerReasons === undefined || Array.isArray(task.plannerReasons) && task.plannerReasons.every(reason => typeof reason === 'string'))
     && isTaskStatus(task.status)
 }
 
@@ -91,6 +97,7 @@ export function matchesScope(task: Task, scope: TaskScope, today: string): boole
   switch (scope) {
     case 'today': return task.date === today
     case 'upcoming': return task.date > today && task.status !== 'completed'
+    case 'inProgress': return task.status === 'inProgress'
     case 'completed': return task.status === 'completed'
     case 'all': return true
   }
@@ -101,9 +108,10 @@ export function compareByDate(a: Task, b: Task): number {
 }
 
 export function formatTaskRange(startTime: string, duration: number | null): string {
+  if (!startTime) return 'Время не назначено'
   if (duration === null) return startTime
   const total = timeToMinute(startTime) + duration % minutesPerDay
   const days = Math.floor(duration / minutesPerDay) + Math.floor(total / minutesPerDay)
   return startTime + '–' + minuteToTime(total % minutesPerDay)
-    + (days ? ' (+' + days + ' дн.)' : '')
+    + nextDaySuffix(days)
 }

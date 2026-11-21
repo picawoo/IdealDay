@@ -41,6 +41,10 @@ export function formatDate(date: string, options: Intl.DateTimeFormatOptions): s
   return new Intl.DateTimeFormat('ru-RU', { ...options, timeZone: 'UTC' }).format(new Date(date))
 }
 
+export function timeInTimeZone(now: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(now)
+}
+
 export function dateInTimeZone(now: Date, timeZone: string): string {
   const parts = new Intl.DateTimeFormat('en', {
     timeZone,

@@ -1,15 +1,22 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
+import { usePendingAction } from '../../shared/lib/usePendingAction'
 import { useUnsavedChanges } from '../../app/pwa/unsavedChanges'
 import { paths } from '../../app/router/paths'
-import { RhythmDisclaimer, RhythmHeader } from '../biorhythms/RhythmControls'
+import { TimePicker } from '../../shared/ui/pickers/TimePicker'
+import { Select } from '../../shared/ui/pickers/Select'
+import { RhythmHeader } from '../biorhythms/RhythmControls'
 import { SystemNotificationSetting } from '../notifications/SystemNotificationSetting'
+import { durationLabel, planningInterval } from '../schedule/dayPlan'
 import { exportPreferences } from './exportPreferences'
 import { preferencesRepository } from './preferencesRepository'
 import { SaveConfirmation } from './SaveConfirmation'
 import { TimeZoneField } from './TimeZoneField'
 import { usePreferences } from './usePreferences'
-import type { LocalSettings } from './preferences'
+import { isPlannerPreferences, isPlanning, notificationDays } from './preferences'
+import type { LocalSettings, NotificationDays } from './preferences'
+import { PlannerPreferencesFields } from '../planner/PlannerPreferencesFields'
+import type { PlannerPreferences } from './preferences'
 import styles from './Preferences.module.css'
 
 const notifications = [
@@ -19,7 +26,11 @@ const notifications = [
 ] as const
 
 export function SettingsPage() {
-  const { settings, timeZone } = usePreferences()
+  const { settings, timeZone, planning, planner } = usePreferences()
+  const [plannerChanges, setPlannerChanges] = useState<PlannerPreferences>()
+  const { pending, run } = usePendingAction()
+  const [wakeTime, setWakeTime] = useState<string>()
+  const [sleepTime, setSleepTime] = useState<string>()
   const [changes, setChanges] = useState<Partial<LocalSettings>>({})
   const [zone, setZone] = useState<string>()
   const [saved, setSaved] = useState(false)
@@ -27,19 +38,28 @@ export function SettingsPage() {
   const [exportError, setExportError] = useState('')
   const values = { ...settings, ...changes }
   const selectedTimeZone = zone ?? timeZone
-  useUnsavedChanges(selectedTimeZone !== timeZone || notifications.some(({ key }) => values[key] !== settings[key]))
+  const hours = { wakeTime: wakeTime ?? planning.wakeTime, sleepTime: sleepTime ?? planning.sleepTime }
+  const range = planningInterval(hours)
+  const keepDays = values.notificationDays ?? 2
+  useUnsavedChanges(!!plannerChanges || selectedTimeZone !== timeZone || notifications.some(({ key }) => values[key] !== settings[key])
+    || keepDays !== (settings.notificationDays ?? 2) || hours.wakeTime !== planning.wakeTime || hours.sleepTime !== planning.sleepTime)
 
-  function save() {
+  function save() { void run(async () => {
+    if (!isPlanning(hours)) { setError('Время пробуждения и отхода ко сну должно различаться.'); return }
     try {
-      preferencesRepository.saveSettings(values, selectedTimeZone)
+      if (plannerChanges && !isPlannerPreferences(plannerChanges)) { setError('Укажите разные границы для предпочтительных окон.'); return }
+      await preferencesRepository.saveSettings({ ...values, notificationDays: keepDays }, selectedTimeZone, hours, plannerChanges)
+      setPlannerChanges(undefined)
       setChanges({})
       setZone(undefined)
+      setWakeTime(undefined)
+      setSleepTime(undefined)
       setError('')
       setSaved(true)
     } catch {
       setError('Не удалось сохранить настройки в этом браузере.')
     }
-  }
+  }) }
 
   function download() {
     try {
@@ -54,7 +74,7 @@ export function SettingsPage() {
     <div className={styles.page}>
       <RhythmHeader title="Настройки" subtitle="Уведомления, приватность и аккаунт" backTo={paths.dashboard} />
       <div className={styles.columns}>
-        <form className={`${styles.panel} ${styles.settingsPanel}`} onSubmit={(event) => { event.preventDefault(); save() }}>
+        <form className={`${styles.panel} ${styles.settingsPanel}`} inert={pending} onSubmit={(event) => { event.preventDefault(); save() }}>
           <h2>Уведомления</h2>
           {notifications.map(({ key, title, description }) => (
             <label key={key} className={styles.notification}>
@@ -67,9 +87,19 @@ export function SettingsPage() {
               </span>
             </label>
           ))}
-          <h3>Язык и время</h3>
-          <div className={styles.fields}>
-            <label className={styles.field}>Язык<input value="Русский" readOnly /></label>
+          <Select label="Хранить историю уведомлений" value={String(keepDays)}
+            options={notificationDays.map(day => ({ value: String(day), label: `${day} ${day === 1 ? 'день' : day === 2 ? 'дня' : 'дней'}` }))}
+            onChange={value => setChanges(previous => ({ ...previous, notificationDays: Number(value) as NotificationDays }))} />
+          <section className={styles.account}>
+            <h3>Настройки планирования</h3>
+            <div className={styles.fields}>
+              <TimePicker label="Время пробуждения" value={hours.wakeTime} onChange={setWakeTime} />
+              <TimePicker label="Время отхода ко сну" value={hours.sleepTime} onChange={setSleepTime} />
+            </div>
+            <p className={styles.muted}>Время для планирования: {isPlanning(hours) ? durationLabel(range.end - range.start) : '—'}{range.end >= 1440 && isPlanning(hours) ? ' · до следующего дня' : ''}. Эти настройки задают основной диапазон расписания.</p>
+          </section>
+          <PlannerPreferencesFields value={plannerChanges ?? planner ?? {}} onChange={setPlannerChanges} />
+          <div className={styles.timeZone}>
             <TimeZoneField value={selectedTimeZone} onChange={setZone} />
           </div>
           <section className={styles.account}>
@@ -88,17 +118,13 @@ export function SettingsPage() {
         <aside className={styles.aside}>
           <h2>Ваши данные —<br />под вашим контролем</h2>
           <p>Дата рождения используется в формуле циклов. Хронотип — для удобных временных окон.</p>
-          <button className={styles.secondary} type="button" onClick={download}>Выгрузить мои данные</button>
+          <button className={styles.primary} type="button" onClick={download}>Выгрузить мои данные</button>
           {exportError && <p className={styles.error} role="alert">{exportError}</p>}
-          <h3>О модели биоритмов</h3>
-          <p>Три синусоиды с периодами 23, 28 и 33 дня. Прогностическая ценность модели научно не подтверждена.</p>
-          <p>Не используйте расчёт для медицинских решений, оценки рисков и отмены лечения.</p>
           <Link className={styles.button} to={paths.profile}>Открыть профиль →</Link>
           <SystemNotificationSetting buttonClassName={styles.secondary} />
           <p className={styles.footnote}>Предпочтения хранятся в этом браузере. Еженедельное письмо, смена пароля, выход и удаление аккаунта пока недоступны.</p>
         </aside>
       </div>
-      <RhythmDisclaimer />
       {saved && <SaveConfirmation title="Настройки сохранены" onClose={() => setSaved(false)} />}
     </div>
   )

@@ -13,6 +13,7 @@
 
 .dialog:modal {
   inline-size: min(600px, calc(100vw - 64px));
+  max-block-size: min(88dvh, calc(100dvh - 32px));
   overflow: hidden;
   box-shadow: 0 16px 60px rgb(37 35 68 / .13);
   line-height: 1.45;
@@ -35,6 +36,9 @@
   margin: 0;
   padding: 0;
   overflow-y: auto;
+  scrollbar-color: var(--color-accent-text) var(--color-accent-soft);
+  scrollbar-width: thin;
+  scrollbar-gutter: stable;
   overscroll-behavior: contain;
   list-style: none;
 }
@@ -50,7 +54,7 @@
   overflow-wrap: anywhere;
 }
 
-.timestamp { color: var(--color-accent); font-size: 12px; font-weight: var(--weight-semi-bold); }
+.timestamp { color: var(--color-accent-text); font-size: 12px; font-weight: var(--weight-semi-bold); }
 .title { color: var(--color-text); font-size: 16px; font-weight: var(--weight-bold); }
 .detail { color: var(--color-text-muted); font-size: 13px; }
 
@@ -85,7 +89,7 @@
 }
 
 .action:hover { background: var(--color-background); }
-.openTask { color: var(--color-accent); }
+.openTask { color: var(--color-accent-text); }
 
 .system { display: grid; justify-items: start; gap: 8px; }
 .system p { color: var(--color-text-muted); font-size: 13px; }

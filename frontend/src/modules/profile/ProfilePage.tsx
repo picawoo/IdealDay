@@ -1,18 +1,18 @@
 import { useRef, useState } from 'react'
+import { usePendingAction } from '../../shared/lib/usePendingAction'
 import { useUnsavedChanges } from '../../app/pwa/unsavedChanges'
 import { paths } from '../../app/router/paths'
 import { dateInTimeZone, formatDate } from '../../shared/lib/calendar'
 import { DatePicker } from '../../shared/ui/pickers/DatePicker'
 import { Select } from '../../shared/ui/pickers/Select'
-import { TimePicker } from '../../shared/ui/pickers/TimePicker'
 import { cycles } from '../biorhythms/model'
-import { RhythmDisclaimer, RhythmHeader } from '../biorhythms/RhythmControls'
+import { RhythmHeader } from '../biorhythms/RhythmControls'
 import { chronotypes, isProfile } from '../settings/preferences'
 import type { Chronotype, LocalProfile } from '../settings/preferences'
 import { preferencesRepository } from '../settings/preferencesRepository'
 import { SaveConfirmation } from '../settings/SaveConfirmation'
-import { TimeZoneField } from '../settings/TimeZoneField'
 import { usePreferences } from '../settings/usePreferences'
+import { ChronotypeIcon } from './ChronotypeIcon'
 import { ProfileAvatar } from './ProfileAvatar'
 import styles from '../settings/Preferences.module.css'
 
@@ -30,18 +30,17 @@ function readPhoto(file: File): Promise<string> {
 }
 
 export function ProfilePage() {
-  const { profile, timeZone, isDemo } = usePreferences()
+  const { profile, timeZone, isDemo, isLocalSetup } = usePreferences()
+  const { pending, run } = usePendingAction()
   const [changes, setChanges] = useState<Partial<LocalProfile>>({})
-  const [zone, setZone] = useState<string>()
   const [reading, setReading] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
   const [photoError, setPhotoError] = useState('')
   const file = useRef<HTMLInputElement>(null)
   const values = { ...profile, ...changes }
-  const selectedTimeZone = zone ?? timeZone
   const rhythm = chronotypes[values.chronotype]
-  useUnsavedChanges(reading || selectedTimeZone !== timeZone || (Object.keys(changes) as Array<keyof LocalProfile>)
+  useUnsavedChanges(reading || (Object.keys(changes) as Array<keyof LocalProfile>)
     .some((key) => values[key] !== profile[key]))
 
   function change<K extends keyof LocalProfile>(key: K, value: LocalProfile[K]) {
@@ -70,40 +69,39 @@ export function ProfilePage() {
 
   function reset() {
     setChanges({})
-    setZone(undefined)
     setError('')
     setPhotoError('')
   }
 
-  function save() {
+  function save() { void run(async () => {
     const next = { ...values, name: values.name.trim(), email: values.email.trim() }
     if (!isProfile(next)) {
-      setError('Проверьте имя, email, дату рождения и время подъёма.')
+      setError('Проверьте имя, email и дату рождения.')
       return
     }
-    if (next.birthDate > dateInTimeZone(new Date(), selectedTimeZone)) {
+    if (next.birthDate > dateInTimeZone(new Date(), timeZone)) {
       setError('Дата рождения не может быть в будущем.')
       return
     }
     try {
-      preferencesRepository.saveProfile(next, selectedTimeZone)
+      await preferencesRepository.saveProfile(next)
       reset()
       setSaved(true)
     } catch {
       setError('Не удалось сохранить профиль в этом браузере.')
     }
-  }
+  }) }
 
   return (
     <div className={styles.page}>
       <RhythmHeader title="Мой профиль" subtitle="Ваши данные и персональные предпочтения" backTo={paths.dashboard} />
       <div className={styles.columns}>
-        <form className={styles.panel} onSubmit={(event) => { event.preventDefault(); save() }}>
+        <form className={styles.panel} inert={pending} onSubmit={(event) => { event.preventDefault(); save() }}>
           <div className={styles.identity}>
             <ProfileAvatar src={values.avatar} large />
             <div>
               <h2>{values.name.trim() || 'Мой профиль'}</h2>
-              <p className={styles.muted}>{isDemo ? 'Демонстрационный профиль' : 'Личный профиль'}</p>
+              <p className={styles.muted}>{isLocalSetup ? 'Локальные настройки' : isDemo ? 'Демонстрационный профиль' : 'Личный профиль'}</p>
               <input ref={file} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(event) => {
                 const photo = event.currentTarget.files?.[0]
                 event.currentTarget.value = ''
@@ -123,12 +121,10 @@ export function ProfilePage() {
             <input type="email" value={values.email} autoComplete="email" required onChange={(event) => change('email', event.currentTarget.value)} />
           </label>
           <div className={styles.fields}>
-            <DatePicker label="Дата рождения" value={values.birthDate} displayValue={formatDate(values.birthDate, { dateStyle: 'short' })}
-              maxDate={dateInTimeZone(new Date(), selectedTimeZone)}
+            <DatePicker timeZone={timeZone} label="Дата рождения" value={values.birthDate} displayValue={formatDate(values.birthDate, { dateStyle: 'short' })}
+              maxDate={dateInTimeZone(new Date(), timeZone)}
               onChange={(value) => change('birthDate', value)} />
             <Select label="Хронотип" value={values.chronotype} options={chronotypeOptions} onChange={(value) => change('chronotype', value)} />
-            <TimeZoneField value={selectedTimeZone} onChange={setZone} />
-            <TimePicker label="Обычно просыпаюсь" value={values.wakeTime} onChange={(value) => change('wakeTime', value)} />
           </div>
           <div className={styles.hint}>
             <strong>Изменили дату рождения или хронотип?</strong>
@@ -142,7 +138,7 @@ export function ProfilePage() {
         </form>
         <aside className={styles.aside}>
           <h2>Ваш ритм</h2>
-          <span className={styles.badge}>{rhythm.label}</span>
+          <span className={styles.badge}><ChronotypeIcon chronotype={values.chronotype} />{rhythm.label}</span>
           <p>{rhythm.description}</p>
           <div className={styles.focus}><span>Окно фокуса</span><strong>{rhythm.focusWindow}</strong></div>
           {cycles.map((cycle) => (
@@ -154,10 +150,8 @@ export function ProfilePage() {
             <strong>Вы управляете данными</strong>
             <p>Дата рождения используется для формулы циклов. Выгрузить сохранённые данные можно в настройках.</p>
           </div>
-          <p className={styles.footnote}>Это инструмент самоорганизации, а не диагностики или лечения.</p>
         </aside>
       </div>
-      <RhythmDisclaimer />
       {saved && <SaveConfirmation title="Профиль сохранён" onClose={() => setSaved(false)} />}
     </div>
   )

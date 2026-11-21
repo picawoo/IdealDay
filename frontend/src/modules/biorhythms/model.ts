@@ -32,13 +32,17 @@ export function forecastDates(date: string, period: Period): string[] {
   return dateRange(start, daysBetween(start, shiftMonth(start, 1)))
 }
 
-export function upcomingTransitions(birthDate: string, date: string) {
-  return dateRange(addDays(date, 1), 33).flatMap((day) =>
-    cycles
-      .map((cycle) => cycleOnDate(birthDate, day, cycle))
-      .filter((cycle) => cycle.critical)
-      .map((cycle) => ({ date: day, cycle })),
-  ).slice(0, 3)
+export function getDayTransitions(birthDate: string | undefined, date: string, values?: readonly ReturnType<typeof cycleOnDate>[]) {
+  const readings = birthDate && date >= birthDate
+    ? (values ?? cycles.map(cycle => cycleOnDate(birthDate, date, cycle))).filter(cycle => cycle.critical) : []
+  return { date, cycles: readings, count: readings.length as 0 | 1 | 2 | 3 }
+}
+
+export const transitionLabels = ['Без переходов', 'Одиночный переход', 'Двойной переход', 'Тройной переход'] as const
+
+export function upcomingTransitions(birthDate: string | undefined, date: string) {
+  return dateRange(addDays(date, 1), 33).map(day => getDayTransitions(birthDate, day))
+    .filter(day => day.count > 0).slice(0, 3)
 }
 
 export function formatPercent(percent: number): string {

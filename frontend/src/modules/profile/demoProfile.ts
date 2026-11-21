@@ -4,4 +4,3 @@ export const demoProfile = {
   timeZone: 'Europe/Moscow',
 } as const
 
-export const demoDate = '2026-11-12'

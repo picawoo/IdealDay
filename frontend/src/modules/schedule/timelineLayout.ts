@@ -2,7 +2,7 @@ import { intersects } from '../tasks/timeIntervals.ts'
 import type { Interval } from '../tasks/timeIntervals.ts'
 import type { DaySegment } from './dayPlan.ts'
 
-const pixelsPerMinute = 1.6
+const pixelsPerMinute = 2.4
 const minimumCardHeight = 48
 const minimumPointHeight = 52
 const minimumLaneWidth = 128

@@ -8,3 +8,20 @@
   min-inline-size: 0;
   padding: var(--space-page);
 }
+
+.storageStatus {
+  display: grid;
+  gap: 4px;
+  margin-block-end: var(--space-section);
+  padding: 8px 12px;
+  border-radius: var(--radius-control);
+  background: var(--color-accent-soft);
+  color: var(--color-text-muted);
+  font-size: var(--text-field-label);
+}
+
+.storageStatus p { margin: 0; }
+
+.storageActions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.storageActions button { border: 0; border-radius: var(--radius-control); background: var(--color-surface); color: var(--color-accent-text); font: inherit; font-weight: var(--weight-bold); padding: 8px 12px; cursor: pointer; }
+.storageActions button:hover { background: var(--color-accent-soft); }

@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import calendarIcon from '../../../assets/icons/calendar.svg'
 import styles from './Pickers.module.css'
 
-export function PickerPopover({ label, value, icon, kind = 'dialog', variant = 'field', onOpen, layoutKey, children }: {
+export function PickerPopover({ label, value, icon, kind = 'dialog', variant = 'field', onOpen, layoutKey, restoreFocusOnDismiss, children }: {
   label: string
   value: string
   icon: 'date' | 'time' | 'select'
@@ -11,6 +11,7 @@ export function PickerPopover({ label, value, icon, kind = 'dialog', variant = '
   variant?: 'field' | 'toolbar'
   onOpen?: () => void
   layoutKey?: string
+  restoreFocusOnDismiss?: boolean
   children: (close: () => void) => ReactNode
 }) {
   const id = useId()
@@ -96,6 +97,9 @@ export function PickerPopover({ label, value, icon, kind = 'dialog', variant = '
         onToggle={(event) => {
           const shown = event.newState === 'open'
           setOpen(shown)
+          if (!shown && restoreFocusOnDismiss && (document.activeElement === document.body || panel.current?.contains(document.activeElement))) {
+            trigger.current?.focus({ preventScroll: true })
+          }
           if (shown) {
             place()
             requestAnimationFrame(() => {

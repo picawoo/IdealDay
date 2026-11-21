@@ -130,11 +130,15 @@
   background: var(--color-background);
 }
 
-.option[aria-selected='true'], .calendar [aria-selected='true'] button {
+.option[aria-selected='true'] {
   background: var(--color-accent-soft);
-  color: var(--color-accent);
+  color: var(--color-accent-text);
   font-weight: var(--weight-bold);
 }
+
+.calendar [aria-selected='true'] button[data-day] { background: var(--color-accent); color: var(--color-surface); font-weight: var(--weight-bold); }
+.calendar [aria-selected='true'] button[data-day]:hover { background: var(--color-accent-text); }
+.apply:disabled { opacity: .55; cursor: default; }
 
 .timeColumns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .listLabel { margin: 0 0 6px; text-align: center; color: var(--color-text-muted); font-size: 13px; }
@@ -169,7 +173,7 @@
   font-weight: var(--weight-bold);
   text-transform: capitalize;
 }
-.calendarHeading button[aria-expanded='true'] { background: var(--color-accent-soft); color: var(--color-accent); }
+.calendarHeading button[aria-expanded='true'] { background: var(--color-accent-soft); color: var(--color-accent-text); }
 .calendarHeader button:disabled, .calendar button:disabled, .monthPicker button:disabled, .yearPicker button:disabled {
   opacity: .45;
   cursor: not-allowed;
@@ -199,9 +203,14 @@
   cursor: pointer;
 }
 .monthPicker button:not(:disabled):hover { background: var(--color-background); }
-.monthPicker button[aria-pressed='true'] { background: var(--color-accent-soft); color: var(--color-accent); }
+.monthPicker button[aria-pressed='true'] { background: var(--color-accent-soft); color: var(--color-accent-text); }
 .calendarRow { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; text-align: center; }
 .calendarRow + .calendarRow { margin-block-start: 2px; }
 .calendarRow span { padding-block: 4px; color: var(--color-text-muted); font-size: 12px; }
 .calendar button { inline-size: 100%; min-block-size: 33px; font-size: 14px; }
 .calendar button[data-outside='true'] { color: var(--color-text-muted); }
+
+.monthYear { font-variant-numeric: tabular-nums; color: var(--color-text); }
+.monthGrid button[aria-pressed='true'] { color: var(--color-surface); background: var(--color-accent); }
+.monthGrid button[aria-pressed='true']:not(:disabled):hover { background: var(--color-accent-text); }
+.calendarHeader button:disabled { cursor: default; color: var(--color-text-muted); opacity: .5; }

@@ -1,19 +1,21 @@
 import { useId, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
-import { addDays, dateRange, formatDate, parseDate, shiftMonth, startOfMonth, startOfWeek } from '../../lib/calendar'
+import { addDays, dateInTimeZone, dateRange, formatDate, parseDate, shiftMonth, startOfMonth, startOfWeek } from '../../lib/calendar'
+import { PickerYearInput } from './PickerYearInput'
 import { PickerPopover } from './PickerPopover'
 import styles from './Pickers.module.css'
 
 const weekdays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
 const monthOffsets = Array.from({ length: 12 }, (_, index) => index)
 
-export function DatePicker({ label, value, onChange, displayValue, variant, maxDate }: {
+export function DatePicker({ label, value, onChange, displayValue, variant, maxDate, timeZone }: {
   label: string
   value: string
   onChange: (value: string) => void
   displayValue?: string
   variant?: 'field' | 'toolbar'
   maxDate?: string
+  timeZone: string
 }) {
   const [active, setActive] = useState(maxDate && value > maxDate ? maxDate : value)
   const [view, setView] = useState<'days' | 'months' | 'years'>('days')
@@ -26,7 +28,8 @@ export function DatePicker({ label, value, onChange, displayValue, variant, maxD
   const yearStart = year + '-01-01'
   const yearText = yearInput.trim()
   const requestedYear = yearText.padStart(4, '0')
-  const validYear = /^\d{1,4}$/.test(yearText) && (!maxDate || requestedYear <= maxDate.slice(0, 4))
+  const validYear = /^\d{1,4}$/.test(yearText) && Number(requestedYear) >= 1 && (!maxDate || requestedYear <= maxDate.slice(0, 4))
+  const today = dateInTimeZone(new Date(), timeZone)
   const dateLabel = displayValue ?? formatDate(value, { day: 'numeric', month: 'long', year: 'numeric' }).replace(/ г\.$/, '')
 
   function monthAllowed(date: string) {
@@ -76,7 +79,7 @@ export function DatePicker({ label, value, onChange, displayValue, variant, maxD
   }
 
   return (
-    <PickerPopover label={label} value={dateLabel} icon="date" variant={variant} layoutKey={view} onOpen={() => {
+    <PickerPopover label={label} value={dateLabel} icon="date" variant={variant} layoutKey={view} restoreFocusOnDismiss onOpen={() => {
       setActive(maxDate && value > maxDate ? maxDate : value)
       setView('days')
     }}>
@@ -96,18 +99,7 @@ export function DatePicker({ label, value, onChange, displayValue, variant, maxD
             <button className={styles.monthArrow} type="button" aria-label="Следующий месяц"
               disabled={view !== 'days' || !monthAllowed(shiftMonth(active, 1))} onClick={() => showMonth(shiftMonth(active, 1))}>›</button>
           </div>
-          {view === 'years' && <div className={styles.yearPicker}>
-            <label>Год
-              <input type="text" inputMode="numeric" maxLength={4} value={yearInput} data-picker-focus=""
-                onChange={(event) => setYearInput(event.target.value)} onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
-                    event.preventDefault()
-                    chooseYear()
-                  }
-                }} />
-            </label>
-            <button type="button" className={styles.apply} disabled={!validYear} onClick={chooseYear}>Выбрать месяц</button>
-          </div>}
+          {view === 'years' && <PickerYearInput value={yearInput} onChange={setYearInput} onApply={chooseYear} valid={validYear} action="Выбрать месяц" />}
           {view === 'months' && <div className={styles.monthPicker} role="group" aria-label={`Месяцы ${year} года`}>
             {monthOffsets.map((offset) => {
               const date = shiftMonth(yearStart, offset)
@@ -137,6 +129,12 @@ export function DatePicker({ label, value, onChange, displayValue, variant, maxD
               </div>
             ))}
           </div>}
+          <button type="button" className={styles.apply} disabled={!!maxDate && today > maxDate} onClick={() => {
+            const current = dateInTimeZone(new Date(), timeZone)
+            if (maxDate && current > maxDate) return
+            close()
+            onChange(current)
+          }}>Сегодня</button>
         </div>
       )}
     </PickerPopover>

@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { daysBetween, formatDate } from '../../shared/lib/calendar'
 import { cycleOnDate, cycleValue, cycles, forecastDates, formatPercent } from './model'
 import type { Period } from './model'
-import { DateField, PeriodSwitch } from './RhythmControls'
+import { MonthPicker } from '../../shared/ui/pickers/MonthPicker'
+import { usePreferences } from '../settings/usePreferences'
+import { PeriodSwitch } from './RhythmControls'
 import styles from './Rhythm.module.css'
 
 const sampleCount = 168
@@ -24,6 +26,7 @@ export function RhythmChart({ date, birthDate, period, onPeriod, onDate, title, 
   title: string
   showMonth?: boolean
 }) {
+  const { timeZone } = usePreferences()
   const [hoverDate, setHoverDate] = useState<string | null>(null)
   const dates = forecastDates(date, period)
   const firstDay = daysBetween(birthDate, dates[0])
@@ -39,7 +42,7 @@ export function RhythmChart({ date, birthDate, period, onPeriod, onDate, title, 
         <h2>{title}</h2>
         <div className={styles.chartActions}>
           <PeriodSwitch period={period} onChange={onPeriod} />
-          {showMonth && <DateField date={date} month onChange={onDate} />}
+          {showMonth && <MonthPicker date={date} timeZone={timeZone} onChange={onDate} />}
         </div>
       </div>
       <div className={styles.plotFrame}>

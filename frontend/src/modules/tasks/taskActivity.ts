@@ -12,6 +12,12 @@ function handleStorage(event: StorageEvent) {
 }
 
 export const taskActivity = {
+  finishedAt(id: string) {
+    try {
+      const value = window.localStorage.getItem(keyPrefix + 'finished:' + id)
+      return value !== null && Number.isFinite(Number(value)) ? Number(value) : undefined
+    } catch { return undefined }
+  },
   lastChanged(id: string): number | undefined {
     try {
       const raw = window.localStorage.getItem(keyPrefix + id)
@@ -21,9 +27,10 @@ export const taskActivity = {
       return undefined
     }
   },
-  record(id: string) {
+  record(id: string, finished = false) {
     try {
       window.localStorage.setItem(keyPrefix + id, String(Date.now()))
+      if (finished) window.localStorage.setItem(keyPrefix + 'finished:' + id, String(Date.now()))
     } catch {
       // The task is already saved. The center can sort using the notice date.
       return
