@@ -61,6 +61,18 @@ class DateBeforeBirthError(AppError):
     message = "Дата не может быть раньше даты рождения из профиля"
 
 
+class TaskNotFoundError(AppError):
+    status_code = 404
+    code = "TASK_NOT_FOUND"
+    message = "Задача не найдена"
+
+
+class ScheduleConflictError(AppError):
+    status_code = 409
+    code = "SCHEDULE_CONFLICT"
+    message = "Задача выходит за пределы дня или пересекает перерыв либо закреплённую задачу"
+
+
 async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
     return JSONResponse(
         status_code=exc.status_code,

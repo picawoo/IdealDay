@@ -49,16 +49,17 @@ def test_downgrade_and_upgrade_roundtrip(
     def tables(connection):
         return set(inspect(connection).get_table_names())
 
-    assert {"users", "user_profiles"} <= _run_on_database(test_database_url, tables)
+    expected = {"users", "user_profiles", "tasks"}
+    assert expected <= _run_on_database(test_database_url, tables)
 
     command.downgrade(alembic_cfg, "base")
     try:
         after_downgrade = _run_on_database(test_database_url, tables)
-        assert not {"users", "user_profiles"} & after_downgrade
+        assert not expected & after_downgrade
     finally:
         command.upgrade(alembic_cfg, "head")
 
-    assert {"users", "user_profiles"} <= _run_on_database(test_database_url, tables)
+    assert expected <= _run_on_database(test_database_url, tables)
 
 
 async def _create_user(session: AsyncSession, email: str = "db@idealday.app") -> User:
