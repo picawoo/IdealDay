@@ -49,7 +49,7 @@ def test_downgrade_and_upgrade_roundtrip(
     def tables(connection):
         return set(inspect(connection).get_table_names())
 
-    expected = {"users", "user_profiles", "tasks"}
+    expected = {"users", "user_profiles", "tasks", "user_settings", "notification_deliveries"}
     assert expected <= _run_on_database(test_database_url, tables)
 
     command.downgrade(alembic_cfg, "base")

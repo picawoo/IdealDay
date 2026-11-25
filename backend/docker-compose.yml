@@ -27,9 +27,10 @@ services:
       retries: 10
 
   api:
+    image: idealday-api
     build: .
     command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
-    environment:
+    environment: &app_environment
       DATABASE_URL: "postgresql+asyncpg://${POSTGRES_USER:-idealday}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD не задан, выполните python3 scripts/init_env.py}@db:5432/${POSTGRES_DB:-idealday}"
       TEST_DATABASE_URL: "postgresql+asyncpg://${POSTGRES_USER:-idealday}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD не задан, выполните python3 scripts/init_env.py}@db:5432/${POSTGRES_DB:-idealday}_test"
       REDIS_URL: redis://redis:6379/0
@@ -43,6 +44,18 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+
+  email-notifications:
+    image: idealday-api
+    profiles: ["notifications"]
+    command: python -m app.workers.email_notifications
+    environment: *app_environment
+    volumes:
+      - .:/app:ro
+    depends_on:
+      api:
+        condition: service_started
+    restart: unless-stopped
 
 volumes:
   pgdata:
