@@ -5,6 +5,7 @@ from fastapi import FastAPI
 
 from app.api.v1.router import api_router
 from app.core.config import get_settings
+from app.core.errors import AppError, app_error_handler
 from app.db.redis import create_redis_client
 from app.db.session import create_engine, create_session_factory
 
@@ -22,7 +23,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="Идеальный День API", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="Идеальный День API", version="0.4.0", lifespan=lifespan)
+    app.add_exception_handler(AppError, app_error_handler)
     app.include_router(api_router, prefix="/api/v1")
     return app
 

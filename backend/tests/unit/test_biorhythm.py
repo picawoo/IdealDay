@@ -96,7 +96,7 @@ def test_cycle_is_periodic(name: CycleName, days: int) -> None:
 
 
 def test_known_example_matches_report() -> None:
-    # Дата рождения 2000-01-01, дата расчёта 2026-11-15 (t = 9815)
+    # Дата рождения 2000-01-01, дата расчёта 2026-11-15 (t = 9815): пример из отчёта
     day = calculate_day(BIRTH, date(2026, 11, 15))
     physical, emotional, intellectual = day.cycles
 

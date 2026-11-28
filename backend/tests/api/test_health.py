@@ -23,6 +23,7 @@ async def test_health_degraded_when_redis_is_down(app: FastAPI, client: AsyncCli
 
     response = await client.get("/api/v1/health")
 
+    # Redis не критичен: сервис работает без кэша, поэтому 200, но статус degraded
     assert response.status_code == 200
     assert response.json() == {
         "status": "degraded",

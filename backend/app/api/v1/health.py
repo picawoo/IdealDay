@@ -1,12 +1,12 @@
 import asyncio
 import logging
 
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Response, status
 from redis.asyncio import Redis
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from app.core.deps import get_engine, get_redis
+from app.core.deps import EngineDep, RedisDep
 from app.schemas.health import ComponentStatus, HealthComponents, HealthResponse
 
 logger = logging.getLogger(__name__)
@@ -38,11 +38,7 @@ async def _check_redis(redis: Redis) -> ComponentStatus:
 
 
 @router.get("/health", response_model=HealthResponse)
-async def health(
-    response: Response,
-    engine: AsyncEngine = Depends(get_engine),
-    redis: Redis = Depends(get_redis),
-) -> HealthResponse:
+async def health(response: Response, engine: EngineDep, redis: RedisDep) -> HealthResponse:
     """БД критична (без неё 503), Redis — нет: без кэша сервис работает, статус `degraded`."""
     database = await _check_database(engine)
     redis_status = await _check_redis(redis)
