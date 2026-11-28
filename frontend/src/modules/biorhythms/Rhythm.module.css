@@ -1,0 +1,440 @@
+.page {
+  display: grid;
+  gap: var(--space-section);
+}
+
+.page h2, .page p, .page dl, .page dd, .page ul {
+  margin: 0;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-block-size: 76px;
+}
+
+.header h1 {
+  min-width: 0;
+}
+
+.header .subtitle {
+  margin-top: 5px;
+}
+
+.subtitle {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.headerActions, .dateNavigation, .chartActions, .viewTabs, .calendarNavigation {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.headerActions {
+  gap: clamp(20px, 4vw, 66px);
+  flex: none;
+}
+
+.dateNavigation > button, .back, .bell, .period button, .viewTabs button,
+.plainLink, .softButton, .primaryButton, .calendarNavigation button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--radius-control);
+  color: var(--color-text);
+  background: var(--color-surface);
+  padding: 0 20px;
+  min-block-size: var(--size-button);
+  font-size: var(--text-control);
+  font-weight: var(--weight-bold);
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dateNavigation > button:first-child, .dateNavigation > button:nth-child(3),
+.calendarNavigation button, .back, .bell {
+  padding: 0;
+  inline-size: 44px;
+}
+
+.bell {
+  inline-size: 48px;
+  block-size: 48px;
+  border-radius: 14px;
+}
+
+.back {
+  inline-size: 42px;
+  min-block-size: 42px;
+}
+
+.dateNavigation .softButton, .softButton, .viewTabs button[aria-pressed='true'] {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
+}
+
+.page button:disabled {
+  cursor: default;
+}
+
+.cycles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-section);
+}
+
+.cycle, .chartCard, .plan, .explanation, .calendar {
+  min-inline-size: 0;
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  box-shadow: 0 4px 20px rgba(48, 33, 111, .03);
+}
+
+[data-cycle='physical'] { --cycle-color: var(--color-physical); --cycle-text: var(--color-physical-text); }
+[data-cycle='emotional'] { --cycle-color: var(--color-emotional); --cycle-text: var(--color-emotional-text); }
+[data-cycle='intellectual'] { --cycle-color: var(--color-intellectual); --cycle-text: var(--color-intellectual-text); }
+
+.cycle {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-block-size: 140px;
+  padding: 20px var(--space-card);
+}
+
+.cycle h2 {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: var(--weight-medium);
+}
+
+.cycle strong {
+  color: var(--cycle-text);
+  font-size: 30px;
+  font-weight: var(--weight-extra-bold);
+}
+
+.cycle p {
+  color: var(--color-text-muted);
+  font-size: var(--text-note);
+}
+
+.dashboardColumns {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: var(--space-section);
+}
+
+.chartCard {
+  display: grid;
+  gap: 18px;
+  align-content: start;
+  padding: var(--space-card);
+  min-block-size: 332px;
+}
+
+.dashboardColumns[data-critical='true'] .chartCard {
+  min-block-size: 300px;
+}
+
+.chartHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-inline-size: 0;
+}
+
+.chartHeader h2, .planHeader h2 {
+  font-size: 18px;
+  font-weight: var(--weight-bold);
+}
+
+.period button {
+  min-block-size: 34px;
+}
+
+.period button[aria-pressed='true'] {
+  background: var(--color-accent-soft);
+}
+
+.plotFrame {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  grid-template-rows: 156px auto;
+  column-gap: 10px;
+  row-gap: 8px;
+}
+
+.axis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font-size: 9px;
+  color: var(--color-text-muted);
+}
+
+.plot {
+  position: relative;
+  min-inline-size: 0;
+  cursor: crosshair;
+}
+
+.plot svg {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  overflow: visible;
+}
+
+.plot line, .plot polyline {
+  vector-effect: non-scaling-stroke;
+}
+
+.gridLine { stroke: var(--color-field-border); }
+.zeroLine { stroke: var(--color-checkbox-border); }
+.selectedLine { stroke: var(--color-accent); }
+.hoverLine { stroke: var(--color-nav-caption); stroke-dasharray: 3 3; }
+
+.curve {
+  fill: none;
+  stroke: var(--cycle-color);
+  stroke-width: 2.4;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.ticks {
+  grid-column: 2;
+  display: flex;
+  justify-content: space-between;
+  gap: 5px;
+}
+
+.ticks button, .transitions button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.ticks button[aria-pressed='true'] {
+  color: var(--color-accent-text);
+  font-weight: var(--weight-bold);
+}
+
+.tooltip {
+  position: absolute;
+  inset-block-start: 8px;
+  z-index: 1;
+  display: grid;
+  gap: 3px;
+  width: max-content;
+  padding: 8px 12px;
+  border: 1px solid var(--color-field-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  box-shadow: 0 4px 20px rgba(48, 33, 111, .08);
+  font-size: var(--text-note);
+  pointer-events: none;
+}
+
+.tooltip span, .transitions strong, .calendarDay small {
+  color: var(--cycle-text);
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  list-style: none;
+  padding: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-note);
+}
+
+.legend li {
+  color: var(--cycle-text);
+  font-weight: var(--weight-semi-bold);
+}
+
+.legend li::before {
+  content: '●';
+  margin-inline-end: 3px;
+}
+
+.advice, .gentleAdvice, .criticalNotice {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  padding: var(--space-card);
+  border-radius: var(--radius-card);
+}
+
+.advice { background: #eee9fd; }
+.gentleAdvice { align-self: start; background: #fff8ef; }
+.criticalNotice {
+  background: #fff2e4;
+  color: var(--color-routine-text);
+  gap: 7px;
+  min-block-size: 112px;
+  padding: 20px;
+}
+
+.criticalNotice h2 { font-size: 19px; }
+.criticalNotice > p { color: var(--color-routine-text); }
+.advice h2 { font-size: 23px; font-weight: var(--weight-extra-bold); }
+.advice > strong { color: var(--color-accent-text); font-size: 25px; font-weight: var(--weight-extra-bold); }
+.advice p, .criticalNotice p {
+  font-size: 12px;
+}
+
+.advice p {
+  color: var(--color-text-muted);
+}
+
+.focusLabel, .lightLoad {
+  justify-self: start;
+  min-inline-size: 156px;
+  border-radius: var(--radius-badge);
+  padding: 7px 10px;
+  text-align: center;
+  font-size: var(--text-note);
+}
+
+.focusLabel {
+  min-inline-size: 182px;
+  color: var(--color-accent-label-text);
+  background: var(--color-accent-label-bg);
+  text-transform: uppercase;
+  font-weight: var(--weight-bold);
+}
+
+.advice .breakAdvice {
+  color: var(--color-accent-text);
+  font-weight: var(--weight-semi-bold);
+}
+
+.primaryButton { color: var(--color-surface); background: var(--color-accent); }
+
+.plan {
+  display: grid;
+  align-content: start;
+  padding: 20px var(--space-card);
+  gap: 10px;
+  min-block-size: 306px;
+}
+
+.plan[data-critical='true'] {
+  min-block-size: 206px;
+}
+
+.planHeader { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; }
+.planHeader > :last-child { justify-self: end; }
+.planHeader .softButton { min-inline-size: 200px; }
+.lightLoad { color: var(--color-routine-text); background: var(--color-routine-soft); }
+
+.planRow {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, .85fr) minmax(0, 1.4fr);
+  align-items: center;
+  min-block-size: 52px;
+  gap: 12px;
+  padding-inline: 16px;
+  font-size: 13px;
+}
+
+.taskName { display: flex; align-items: center; gap: 16px; font-weight: var(--weight-semi-bold); }
+.taskName:where(a) { color: var(--color-text); overflow-wrap: anywhere; }
+.demoPlanHeading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin: 8px 0 0;
+}
+.taskName input { margin: 0; width: 18px; height: 18px; accent-color: var(--color-accent); }
+.taskCategory { color: var(--color-intellectual-text); }
+.taskCategory[data-category='Физическая'] { color: var(--color-physical-text); }
+.taskCategory[data-category='Творческая'] { color: var(--color-emotional-text); }
+.taskCategory[data-category='Рутинная'] { color: var(--color-routine-text); }
+
+.viewTabs { align-items: stretch; }
+.viewTabs button { padding-inline: 36px; }
+.viewTabs .calendarHelp { gap: 8px; padding-inline: 14px; }
+.explanationColumns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-section); }
+.explanation { display: grid; align-content: start; gap: 12px; padding: var(--space-card); min-block-size: 254px; }
+.explanation h2 { font-size: 19px; font-weight: var(--weight-bold); }
+.explanation p { color: var(--color-text-muted); font-size: 12px; }
+.transitions { padding: 0; list-style: none; }
+.transitions li { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-block-size: 34px; font-size: 12px; }
+.transitions button { font-size: inherit; }
+
+.calendar { display: grid; gap: var(--space-section); padding: var(--space-card); }
+.calendarNavigation h2 { text-transform: capitalize; }
+.calendarGrid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; }
+.weekday { padding-inline-start: 12px; color: var(--color-text-muted); font-size: var(--text-note); text-transform: uppercase; }
+.calendarDay {
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  gap: 4px;
+  min-block-size: 88px;
+  min-inline-size: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--color-field-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-weight: var(--weight-bold);
+  cursor: pointer;
+}
+.calendarDay[data-critical='true'] { background: var(--color-routine-soft); }
+.calendarDay[data-outside='true'] { color: var(--color-text-muted); }
+.calendarDay[aria-pressed='true'] { border-color: var(--color-accent); box-shadow: inset 0 0 0 1px var(--color-accent); }
+.calendarDay small { font-size: var(--text-note); }
+.calendarLegend { display: flex; gap: 20px; align-items: center; color: var(--color-text-muted); font-size: var(--text-note); }
+
+.calendarHelp span { display: grid; place-items: center; inline-size: 18px; block-size: 18px; border-radius: 50%; background: var(--color-accent-soft); color: var(--color-accent-text); font-weight: var(--weight-extra-bold); }
+.calendarHelp:hover { box-shadow: inset 0 0 0 1px var(--color-accent); }
+.calendarDialog p { margin: 0; }
+.calendarDialogList { display: grid; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.calendarDialogList li { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 10px 12px; border-radius: var(--radius-control); }
+.calendarDialogList [data-cycle='physical'] { background: var(--color-physical-soft); color: var(--color-physical-text); }
+.calendarDialogList [data-cycle='emotional'] { background: var(--color-emotional-soft); color: var(--color-emotional-text); }
+.calendarDialogList [data-cycle='intellectual'] { background: var(--color-intellectual-soft); color: var(--color-intellectual-text); }
+
+.cycle .cycleSummary { font-size: var(--text-field-label); }
+.cycleDetails {
+  justify-self: start;
+  min-block-size: 32px;
+  padding-inline: 10px;
+  border: 0;
+  border-radius: var(--radius-badge);
+  color: var(--cycle-text);
+  background: var(--color-surface);
+  font-size: var(--text-field-label);
+  font-weight: var(--weight-bold);
+  cursor: pointer;
+}
+.cycleDetails:hover { box-shadow: inset 0 0 0 1px currentColor; }
+.phaseGuide { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.phaseGuide > div { padding: 8px 10px; border-radius: var(--radius-control); background: var(--color-background); }
+.phaseGuide dt { display: flex; align-items: center; gap: 6px; font-size: var(--text-field-label); font-weight: var(--weight-bold); }
+.phaseGuide dt span { display: grid; place-items: center; flex: 0 0 22px; block-size: 22px; border-radius: 50%; color: var(--color-accent-text); background: var(--color-accent-soft); }
+.phaseGuide dt span[data-phase='negative'] { color: var(--color-text-muted); background: var(--color-neutral-soft); }
+.phaseGuide dt span[data-phase='crossing'] { color: var(--color-routine-text); background: var(--color-routine-soft); }
+.phaseGuide dd { margin: 4px 0 0; color: var(--color-text-muted); font-size: 12px; }
+.calendarDialog h3 { margin: 0; font-size: var(--text-control); }

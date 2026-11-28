@@ -1,0 +1,5 @@
+.title {
+  margin: 0;
+  font-size: var(--text-page-title);
+  font-weight: var(--weight-extra-bold);
+}
